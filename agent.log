@@ -1,0 +1,475 @@
+2026-05-23 02:10:52,895 [INFO] 🤖 Enhanced AI Stock News Agent started.
+2026-05-23 02:11:03,511 [ERROR] Telegram error: 404 Client Error: Not Found for url: https://api.telegram.org/bot/sendMessage
+2026-05-23 02:11:04,466 [INFO] ── Fetching news ──
+2026-05-23 02:11:11,711 [INFO] 3 new articles.
+2026-05-23 02:13:57,239 [INFO] 🤖 Enhanced AI Stock News Agent started.
+2026-05-23 02:13:58,372 [INFO] Telegram sent.
+2026-05-23 02:14:04,382 [INFO] ── Fetching news ──
+2026-05-23 02:14:11,061 [INFO] 3 new articles.
+2026-05-23 02:14:18,505 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 02:14:18,524 [INFO] 2 alerts to send.
+2026-05-23 02:14:20,007 [INFO] Telegram sent.
+2026-05-23 02:14:23,379 [INFO] Telegram sent.
+2026-05-23 02:14:24,888 [INFO] Sleeping 30 min...
+2026-05-23 02:19:14,243 [INFO] 🤖 Enhanced AI Stock News Agent started.
+2026-05-23 02:19:15,403 [INFO] Telegram sent.
+2026-05-23 02:19:16,352 [WARNING] Price fetch error GOOGLE: 'NoneType' object is not subscriptable
+2026-05-23 02:19:17,456 [INFO] Telegram sent.
+2026-05-23 02:19:18,769 [INFO] Telegram sent.
+2026-05-23 02:19:18,778 [INFO] ── Fetching news ──
+2026-05-23 02:19:26,293 [INFO] 1 new articles.
+2026-05-23 02:19:28,009 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 02:19:28,017 [INFO] 0 alerts to send.
+2026-05-23 02:19:28,019 [INFO] Sleeping 30 min...
+2026-05-23 03:09:44,451 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 03:09:44,461 [INFO] ── Fetching news ──
+2026-05-23 03:09:44,950 [INFO] 0 new articles.
+2026-05-23 03:09:44,950 [INFO] Sleeping 30 min...
+2026-05-23 03:39:44,979 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 03:39:44,981 [INFO] ── Fetching news ──
+2026-05-23 03:39:45,330 [INFO] 0 new articles.
+2026-05-23 03:39:45,331 [INFO] Sleeping 30 min...
+2026-05-23 04:09:45,413 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 04:09:45,421 [INFO] ── Fetching news ──
+2026-05-23 04:09:45,897 [INFO] 0 new articles.
+2026-05-23 04:09:45,897 [INFO] Sleeping 30 min...
+2026-05-23 04:39:45,906 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 04:39:45,906 [INFO] ── Fetching news ──
+2026-05-23 04:39:46,379 [INFO] 0 new articles.
+2026-05-23 04:39:46,380 [INFO] Sleeping 30 min...
+2026-05-23 05:09:46,402 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 05:09:46,404 [INFO] ── Fetching news ──
+2026-05-23 05:09:46,759 [INFO] 0 new articles.
+2026-05-23 05:09:46,760 [INFO] Sleeping 30 min...
+2026-05-23 05:39:46,775 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 05:39:46,776 [INFO] ── Fetching news ──
+2026-05-23 05:39:47,239 [INFO] 0 new articles.
+2026-05-23 05:39:47,240 [INFO] Sleeping 30 min...
+2026-05-23 06:09:47,250 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 06:09:47,253 [INFO] ── Fetching news ──
+2026-05-23 06:09:47,598 [INFO] 0 new articles.
+2026-05-23 06:09:47,599 [INFO] Sleeping 30 min...
+2026-05-23 06:39:47,614 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 06:39:47,614 [INFO] ── Fetching news ──
+2026-05-23 06:39:47,978 [INFO] 0 new articles.
+2026-05-23 06:39:47,979 [INFO] Sleeping 30 min...
+2026-05-23 07:09:48,000 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 07:09:48,005 [INFO] ── Fetching news ──
+2026-05-23 07:09:48,436 [INFO] 0 new articles.
+2026-05-23 07:09:48,437 [INFO] Sleeping 30 min...
+2026-05-23 07:39:48,456 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 07:39:48,457 [INFO] ── Fetching news ──
+2026-05-23 07:39:48,820 [INFO] 0 new articles.
+2026-05-23 07:39:48,821 [INFO] Sleeping 30 min...
+2026-05-23 08:09:48,835 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 08:09:48,851 [ERROR] Telegram error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/sendMessage (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 08:09:48,852 [INFO] ── Fetching news ──
+2026-05-23 08:09:49,315 [INFO] 0 new articles.
+2026-05-23 08:09:49,315 [INFO] Sleeping 30 min...
+2026-05-23 08:39:49,327 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 08:39:49,328 [INFO] ── Fetching news ──
+2026-05-23 08:39:49,667 [INFO] 0 new articles.
+2026-05-23 08:39:49,667 [INFO] Sleeping 30 min...
+2026-05-23 09:09:49,677 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 09:09:49,677 [INFO] ── Fetching news ──
+2026-05-23 09:09:50,026 [INFO] 0 new articles.
+2026-05-23 09:09:50,026 [INFO] Sleeping 30 min...
+2026-05-23 09:55:41,223 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555213&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-23 09:55:41,225 [INFO] ── Fetching news ──
+2026-05-23 09:55:41,553 [INFO] 0 new articles.
+2026-05-23 09:55:41,554 [INFO] Sleeping 30 min...
+2026-05-23 10:26:10,797 [INFO] Telegram sent.
+2026-05-23 10:26:10,820 [INFO] ── Fetching news ──
+2026-05-23 10:26:20,806 [INFO] 0 new articles.
+2026-05-23 10:26:20,806 [INFO] Sleeping 30 min...
+2026-05-23 10:56:28,347 [INFO] ── Fetching news ──
+2026-05-23 10:56:51,010 [INFO] 0 new articles.
+2026-05-23 10:56:51,011 [INFO] Sleeping 30 min...
+2026-05-23 11:26:57,191 [INFO] ── Fetching news ──
+2026-05-23 11:27:10,687 [INFO] 0 new articles.
+2026-05-23 11:27:10,687 [INFO] Sleeping 30 min...
+2026-05-23 11:57:16,719 [INFO] ── Fetching news ──
+2026-05-23 11:57:43,314 [INFO] 0 new articles.
+2026-05-23 11:57:43,315 [INFO] Sleeping 30 min...
+2026-05-23 13:40:24,148 [INFO] ── Fetching news ──
+2026-05-23 13:40:42,416 [INFO] 0 new articles.
+2026-05-23 13:40:42,417 [INFO] Sleeping 30 min...
+2026-05-23 14:42:08,380 [INFO] ── Fetching news ──
+2026-05-23 14:42:19,125 [INFO] 0 new articles.
+2026-05-23 14:42:19,126 [INFO] Sleeping 30 min...
+2026-05-23 16:17:44,074 [INFO] ── Fetching news ──
+2026-05-23 16:17:54,661 [INFO] 2 new articles.
+2026-05-23 16:17:59,170 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 16:17:59,220 [INFO] 2 alerts to send.
+2026-05-23 16:18:00,912 [INFO] Telegram sent.
+2026-05-23 16:18:03,512 [INFO] Telegram sent.
+2026-05-23 16:18:05,023 [INFO] Sleeping 30 min...
+2026-05-23 16:48:11,115 [INFO] ── Fetching news ──
+2026-05-23 16:48:21,117 [INFO] 1 new articles.
+2026-05-23 16:48:23,098 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 16:48:23,144 [INFO] 0 alerts to send.
+2026-05-23 16:48:23,148 [INFO] Sleeping 30 min...
+2026-05-23 17:18:29,316 [INFO] ── Fetching news ──
+2026-05-23 17:18:40,143 [INFO] 1 new articles.
+2026-05-23 17:18:43,824 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 17:18:43,862 [INFO] 1 alerts to send.
+2026-05-23 17:18:45,878 [INFO] Telegram sent.
+2026-05-23 17:18:47,389 [INFO] Sleeping 30 min...
+2026-05-23 17:48:58,251 [INFO] ── Fetching news ──
+2026-05-23 17:49:09,598 [INFO] 1 new articles.
+2026-05-23 17:49:11,927 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 17:49:11,976 [INFO] 0 alerts to send.
+2026-05-23 17:49:11,981 [INFO] Sleeping 30 min...
+2026-05-23 18:19:25,752 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Read timed out. (read timeout=10)
+2026-05-23 18:19:25,763 [INFO] ── Fetching news ──
+2026-05-23 18:19:50,524 [INFO] 0 new articles.
+2026-05-23 18:19:50,525 [INFO] Sleeping 30 min...
+2026-05-23 18:49:56,431 [INFO] ── Fetching news ──
+2026-05-23 18:50:08,690 [INFO] 3 new articles.
+2026-05-23 18:50:12,477 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 18:50:12,512 [INFO] 1 alerts to send.
+2026-05-23 18:50:13,810 [INFO] Telegram sent.
+2026-05-23 18:50:15,321 [INFO] Sleeping 30 min...
+2026-05-23 19:20:43,356 [INFO] ── Fetching news ──
+2026-05-23 19:21:45,763 [INFO] 0 new articles.
+2026-05-23 19:21:45,764 [INFO] Sleeping 30 min...
+2026-05-23 20:32:10,537 [INFO] ── Fetching news ──
+2026-05-23 20:32:19,705 [INFO] 1 new articles.
+2026-05-23 20:32:22,149 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 20:32:22,202 [INFO] 0 alerts to send.
+2026-05-23 20:32:22,205 [INFO] Sleeping 30 min...
+2026-05-23 21:24:34,924 [INFO] ── Fetching news ──
+2026-05-23 21:24:51,202 [INFO] 1 new articles.
+2026-05-23 21:24:53,933 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 21:24:53,976 [INFO] 1 alerts to send.
+2026-05-23 21:24:55,533 [INFO] Telegram sent.
+2026-05-23 21:24:57,052 [INFO] Sleeping 30 min...
+2026-05-23 22:36:23,602 [INFO] ── Fetching news ──
+2026-05-23 22:36:33,647 [INFO] 1 new articles.
+2026-05-23 22:36:35,533 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-23 22:36:35,583 [INFO] 0 alerts to send.
+2026-05-23 22:36:35,587 [INFO] Sleeping 30 min...
+2026-05-23 23:10:00,715 [INFO] ── Fetching news ──
+2026-05-23 23:10:10,632 [INFO] 0 new articles.
+2026-05-23 23:10:10,633 [INFO] Sleeping 30 min...
+2026-05-24 00:43:22,216 [INFO] ── Fetching news ──
+2026-05-24 00:43:36,658 [INFO] 0 new articles.
+2026-05-24 00:43:36,659 [INFO] Sleeping 30 min...
+2026-05-24 01:43:36,329 [INFO] ── Fetching news ──
+2026-05-24 01:43:46,192 [INFO] 0 new articles.
+2026-05-24 01:43:46,192 [INFO] Sleeping 30 min...
+2026-05-24 01:59:49,130 [INFO] 🤖 Enhanced AI Stock News Agent started.
+2026-05-24 01:59:50,275 [INFO] Telegram sent.
+2026-05-24 01:59:56,327 [INFO] ── Fetching news ──
+2026-05-24 02:00:02,845 [INFO] 0 new articles.
+2026-05-24 02:00:02,846 [INFO] Sleeping 30 min...
+2026-05-24 02:13:52,527 [INFO] ── Fetching news ──
+2026-05-24 02:14:02,442 [INFO] 0 new articles.
+2026-05-24 02:14:02,443 [INFO] Sleeping 30 min...
+2026-05-24 03:16:37,728 [INFO] ── Fetching news ──
+2026-05-24 03:16:47,520 [INFO] 0 new articles.
+2026-05-24 03:16:47,521 [INFO] Sleeping 30 min...
+2026-05-24 05:06:30,251 [INFO] ── Fetching news ──
+2026-05-24 05:07:08,136 [INFO] 1 new articles.
+2026-05-24 05:07:10,876 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 05:07:10,932 [INFO] 0 alerts to send.
+2026-05-24 05:07:10,936 [INFO] Sleeping 30 min...
+2026-05-24 06:49:46,928 [INFO] ── Fetching news ──
+2026-05-24 06:50:06,793 [INFO] 0 new articles.
+2026-05-24 06:50:06,794 [INFO] Sleeping 30 min...
+2026-05-24 08:38:09,330 [INFO] Telegram sent.
+2026-05-24 08:38:09,348 [INFO] ── Fetching news ──
+2026-05-24 08:38:17,881 [INFO] 0 new articles.
+2026-05-24 08:38:17,882 [INFO] Sleeping 30 min...
+2026-05-24 09:35:05,214 [INFO] ── Fetching news ──
+2026-05-24 09:35:14,116 [INFO] 0 new articles.
+2026-05-24 09:35:14,116 [INFO] Sleeping 30 min...
+2026-05-24 09:49:07,083 [INFO] ── Fetching news ──
+2026-05-24 09:49:19,067 [INFO] 0 new articles.
+2026-05-24 09:49:19,068 [INFO] Sleeping 30 min...
+2026-05-24 10:05:20,901 [INFO] ── Fetching news ──
+2026-05-24 10:05:33,553 [INFO] 0 new articles.
+2026-05-24 10:05:33,554 [INFO] Sleeping 30 min...
+2026-05-24 10:19:25,774 [INFO] ── Fetching news ──
+2026-05-24 10:19:40,516 [INFO] 0 new articles.
+2026-05-24 10:19:40,517 [INFO] Sleeping 30 min...
+2026-05-24 10:35:39,744 [INFO] ── Fetching news ──
+2026-05-24 10:35:49,172 [INFO] 0 new articles.
+2026-05-24 10:35:49,173 [INFO] Sleeping 30 min...
+2026-05-24 10:49:47,272 [INFO] ── Fetching news ──
+2026-05-24 10:49:56,884 [INFO] 0 new articles.
+2026-05-24 10:49:56,884 [INFO] Sleeping 30 min...
+2026-05-24 11:05:55,903 [INFO] ── Fetching news ──
+2026-05-24 11:06:05,559 [INFO] 0 new articles.
+2026-05-24 11:06:05,560 [INFO] Sleeping 30 min...
+2026-05-24 11:20:02,776 [INFO] ── Fetching news ──
+2026-05-24 11:20:12,534 [INFO] 0 new articles.
+2026-05-24 11:20:12,535 [INFO] Sleeping 30 min...
+2026-05-24 11:52:06,760 [INFO] ── Fetching news ──
+2026-05-24 11:52:16,152 [INFO] 0 new articles.
+2026-05-24 11:52:16,153 [INFO] Sleeping 30 min...
+2026-05-24 12:11:44,421 [INFO] ── Fetching news ──
+2026-05-24 12:11:53,807 [INFO] 0 new articles.
+2026-05-24 12:11:53,807 [INFO] Sleeping 30 min...
+2026-05-24 12:47:36,108 [INFO] ── Fetching news ──
+2026-05-24 12:47:49,559 [INFO] 0 new articles.
+2026-05-24 12:47:49,559 [INFO] Sleeping 30 min...
+2026-05-24 13:27:31,121 [INFO] Telegram sent.
+2026-05-24 13:27:31,144 [INFO] ── Fetching news ──
+2026-05-24 13:27:39,779 [INFO] 0 new articles.
+2026-05-24 13:27:39,780 [INFO] Sleeping 30 min...
+2026-05-24 13:52:02,936 [INFO] Telegram sent.
+2026-05-24 13:52:02,959 [INFO] ── Fetching news ──
+2026-05-24 13:52:12,203 [INFO] 0 new articles.
+2026-05-24 13:52:12,203 [INFO] Sleeping 30 min...
+2026-05-24 14:10:34,978 [INFO] ── Fetching news ──
+2026-05-24 14:10:48,506 [INFO] 0 new articles.
+2026-05-24 14:10:48,507 [INFO] Sleeping 30 min...
+2026-05-24 14:26:42,428 [INFO] ── Fetching news ──
+2026-05-24 14:26:54,351 [INFO] 0 new articles.
+2026-05-24 14:26:54,352 [INFO] Sleeping 30 min...
+2026-05-24 14:41:00,593 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555215&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-24 14:41:00,604 [INFO] ── Fetching news ──
+2026-05-24 14:41:38,729 [INFO] 0 new articles.
+2026-05-24 14:41:38,730 [INFO] Sleeping 30 min...
+2026-05-24 14:57:00,416 [INFO] ── Fetching news ──
+2026-05-24 14:57:11,789 [INFO] 0 new articles.
+2026-05-24 14:57:11,790 [INFO] Sleeping 30 min...
+2026-05-24 15:11:45,079 [INFO] ── Fetching news ──
+2026-05-24 15:12:07,972 [INFO] 0 new articles.
+2026-05-24 15:12:07,973 [INFO] Sleeping 30 min...
+2026-05-24 15:28:11,401 [INFO] ── Fetching news ──
+2026-05-24 15:28:20,652 [INFO] 0 new articles.
+2026-05-24 15:28:20,652 [INFO] Sleeping 30 min...
+2026-05-24 16:31:15,232 [INFO] ── Fetching news ──
+2026-05-24 16:31:25,193 [INFO] 0 new articles.
+2026-05-24 16:31:25,194 [INFO] Sleeping 30 min...
+2026-05-24 18:29:44,843 [INFO] ── Fetching news ──
+2026-05-24 18:30:03,653 [INFO] 1 new articles.
+2026-05-24 18:30:06,585 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 18:30:06,652 [INFO] 1 alerts to send.
+2026-05-24 18:30:08,101 [INFO] Telegram sent.
+2026-05-24 18:30:09,621 [INFO] Sleeping 30 min...
+2026-05-24 18:44:42,901 [INFO] ── Fetching news ──
+2026-05-24 18:45:01,180 [INFO] 1 new articles.
+2026-05-24 18:45:03,953 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 18:45:03,985 [INFO] 1 alerts to send.
+2026-05-24 18:45:05,414 [INFO] Telegram sent.
+2026-05-24 18:45:06,926 [INFO] Sleeping 30 min...
+2026-05-24 19:00:23,534 [INFO] ── Fetching news ──
+2026-05-24 19:00:47,272 [INFO] 0 new articles.
+2026-05-24 19:00:47,273 [INFO] Sleeping 30 min...
+2026-05-24 19:15:27,795 [INFO] ── Fetching news ──
+2026-05-24 19:15:38,573 [INFO] 1 new articles.
+2026-05-24 19:15:40,893 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 19:15:40,929 [INFO] 0 alerts to send.
+2026-05-24 19:15:40,932 [INFO] Sleeping 30 min...
+2026-05-24 19:31:11,473 [INFO] ── Fetching news ──
+2026-05-24 19:31:27,043 [INFO] 1 new articles.
+2026-05-24 19:31:31,736 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 19:31:31,760 [INFO] 0 alerts to send.
+2026-05-24 19:31:31,764 [INFO] Sleeping 30 min...
+2026-05-24 20:30:20,491 [ERROR] Command handler error: HTTPSConnectionPool(host='api.telegram.org', port=443): Max retries exceeded with url: /bot8526822956:AAFCCU9fb-OfDbMIMAB7O_kcu0q4XMC1CGw/getUpdates?offset=310555215&timeout=5 (Caused by NameResolutionError("HTTPSConnection(host='api.telegram.org', port=443): Failed to resolve 'api.telegram.org' ([Errno 7] No address associated with hostname)"))
+2026-05-24 20:30:20,499 [INFO] ── Fetching news ──
+2026-05-24 20:30:37,259 [INFO] 2 new articles.
+2026-05-24 20:30:40,087 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 20:30:40,122 [INFO] 1 alerts to send.
+2026-05-24 20:30:41,468 [INFO] Telegram sent.
+2026-05-24 20:30:50,073 [INFO] Sleeping 30 min...
+2026-05-24 20:51:01,773 [INFO] ── Fetching news ──
+2026-05-24 20:51:17,544 [INFO] 3 new articles.
+2026-05-24 20:51:20,633 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 20:51:20,685 [INFO] 2 alerts to send.
+2026-05-24 20:51:22,546 [INFO] Telegram sent.
+2026-05-24 20:51:25,784 [INFO] Telegram sent.
+2026-05-24 20:51:27,297 [INFO] Sleeping 30 min...
+2026-05-24 21:05:47,849 [INFO] ── Fetching news ──
+2026-05-24 21:06:00,410 [INFO] 3 new articles.
+2026-05-24 21:06:04,663 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 21:06:04,714 [INFO] 1 alerts to send.
+2026-05-24 21:06:06,300 [INFO] Telegram sent.
+2026-05-24 21:06:07,812 [INFO] Sleeping 30 min...
+2026-05-24 21:21:33,181 [INFO] ── Fetching news ──
+2026-05-24 21:21:45,488 [INFO] 0 new articles.
+2026-05-24 21:21:45,489 [INFO] Sleeping 30 min...
+2026-05-24 21:36:13,700 [INFO] ── Fetching news ──
+2026-05-24 21:36:24,219 [INFO] 0 new articles.
+2026-05-24 21:36:24,219 [INFO] Sleeping 30 min...
+2026-05-24 21:51:51,514 [INFO] ── Fetching news ──
+2026-05-24 21:52:05,815 [INFO] 2 new articles.
+2026-05-24 21:52:09,748 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 21:52:09,805 [INFO] 1 alerts to send.
+2026-05-24 21:52:11,643 [INFO] Telegram sent.
+2026-05-24 21:52:13,168 [INFO] Sleeping 30 min...
+2026-05-24 22:06:30,200 [INFO] ── Fetching news ──
+2026-05-24 22:06:45,282 [INFO] 1 new articles.
+2026-05-24 22:06:47,472 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-24 22:06:47,501 [INFO] 1 alerts to send.
+2026-05-24 22:06:59,041 [INFO] Telegram sent.
+2026-05-24 22:07:00,564 [INFO] Sleeping 30 min...
+2026-05-24 22:22:19,191 [INFO] ── Fetching news ──
+2026-05-24 22:22:31,068 [INFO] 0 new articles.
+2026-05-24 22:22:31,069 [INFO] Sleeping 30 min...
+2026-05-24 22:37:06,552 [INFO] ── Fetching news ──
+2026-05-24 22:37:18,401 [INFO] 0 new articles.
+2026-05-24 22:37:18,401 [INFO] Sleeping 30 min...
+2026-05-24 22:52:40,830 [INFO] ── Fetching news ──
+2026-05-24 22:52:54,067 [INFO] 0 new articles.
+2026-05-24 22:52:54,067 [INFO] Sleeping 30 min...
+2026-05-24 23:07:28,744 [INFO] ── Fetching news ──
+2026-05-24 23:07:42,629 [INFO] 0 new articles.
+2026-05-24 23:07:42,630 [INFO] Sleeping 30 min...
+2026-05-24 23:30:27,437 [INFO] ── Fetching news ──
+2026-05-24 23:30:35,831 [INFO] 0 new articles.
+2026-05-24 23:30:35,832 [INFO] Sleeping 30 min...
+2026-05-24 23:45:17,067 [INFO] ── Fetching news ──
+2026-05-24 23:45:26,427 [INFO] 0 new articles.
+2026-05-24 23:45:26,428 [INFO] Sleeping 30 min...
+2026-05-25 00:05:47,575 [INFO] ── Fetching news ──
+2026-05-25 00:05:56,773 [INFO] 0 new articles.
+2026-05-25 00:05:56,774 [INFO] Sleeping 30 min...
+2026-05-25 00:23:28,453 [INFO] ── Fetching news ──
+2026-05-25 00:23:38,261 [INFO] 0 new articles.
+2026-05-25 00:23:38,261 [INFO] Sleeping 30 min...
+2026-05-25 00:38:58,498 [INFO] ── Fetching news ──
+2026-05-25 00:39:07,962 [INFO] 0 new articles.
+2026-05-25 00:39:07,962 [INFO] Sleeping 30 min...
+2026-05-25 01:40:53,606 [INFO] ── Fetching news ──
+2026-05-25 01:41:02,942 [INFO] 0 new articles.
+2026-05-25 01:41:02,943 [INFO] Sleeping 30 min...
+2026-05-25 03:58:00,785 [INFO] ── Fetching news ──
+2026-05-25 03:58:21,656 [INFO] 1 new articles.
+2026-05-25 03:58:25,254 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 03:58:25,300 [INFO] 1 alerts to send.
+2026-05-25 03:58:27,161 [INFO] Telegram sent.
+2026-05-25 03:58:36,742 [INFO] Sleeping 30 min...
+2026-05-25 06:15:44,123 [INFO] ── Fetching news ──
+2026-05-25 06:16:05,654 [INFO] 0 new articles.
+2026-05-25 06:16:05,655 [INFO] Sleeping 30 min...
+2026-05-25 08:25:26,802 [INFO] Telegram sent.
+2026-05-25 08:25:26,817 [INFO] ── Fetching news ──
+2026-05-25 08:25:35,988 [INFO] 1 new articles.
+2026-05-25 08:25:38,461 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 08:25:38,580 [INFO] 1 alerts to send.
+2026-05-25 08:25:41,040 [INFO] Telegram sent.
+2026-05-25 08:25:42,549 [INFO] Sleeping 30 min...
+2026-05-25 08:46:45,450 [INFO] Telegram sent.
+2026-05-25 08:46:45,463 [INFO] ── Fetching news ──
+2026-05-25 08:46:56,643 [INFO] 1 new articles.
+2026-05-25 08:46:59,089 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 08:46:59,156 [INFO] 1 alerts to send.
+2026-05-25 08:47:01,076 [INFO] Telegram sent.
+2026-05-25 08:47:02,604 [INFO] Sleeping 30 min...
+2026-05-25 09:02:33,873 [INFO] ── Fetching news ──
+2026-05-25 09:02:44,643 [INFO] 0 new articles.
+2026-05-25 09:02:44,643 [INFO] Sleeping 30 min...
+2026-05-25 09:17:09,073 [INFO] ── Fetching news ──
+2026-05-25 09:17:29,336 [INFO] 0 new articles.
+2026-05-25 09:17:29,336 [INFO] Sleeping 30 min...
+2026-05-25 09:32:51,055 [INFO] ── Fetching news ──
+2026-05-25 09:33:07,857 [INFO] 0 new articles.
+2026-05-25 09:33:07,858 [INFO] Sleeping 30 min...
+2026-05-25 09:47:35,642 [INFO] ── Fetching news ──
+2026-05-25 09:47:53,603 [INFO] 0 new articles.
+2026-05-25 09:47:53,604 [INFO] Sleeping 30 min...
+2026-05-25 10:03:14,203 [INFO] ── Fetching news ──
+2026-05-25 10:03:31,168 [INFO] 0 new articles.
+2026-05-25 10:03:31,169 [INFO] Sleeping 30 min...
+2026-05-25 10:18:00,127 [INFO] ── Fetching news ──
+2026-05-25 10:18:16,875 [INFO] 0 new articles.
+2026-05-25 10:18:16,876 [INFO] Sleeping 30 min...
+2026-05-25 10:40:51,736 [INFO] ── Fetching news ──
+2026-05-25 10:41:14,195 [INFO] 0 new articles.
+2026-05-25 10:41:14,196 [INFO] Sleeping 30 min...
+2026-05-25 11:12:49,266 [INFO] ── Fetching news ──
+2026-05-25 11:12:58,951 [INFO] 0 new articles.
+2026-05-25 11:12:58,952 [INFO] Sleeping 30 min...
+2026-05-25 11:28:29,191 [INFO] ── Fetching news ──
+2026-05-25 11:28:39,498 [INFO] 0 new articles.
+2026-05-25 11:28:39,499 [INFO] Sleeping 30 min...
+2026-05-25 11:43:15,361 [INFO] ── Fetching news ──
+2026-05-25 11:43:27,465 [INFO] 0 new articles.
+2026-05-25 11:43:27,466 [INFO] Sleeping 30 min...
+2026-05-25 12:00:42,536 [INFO] ── Fetching news ──
+2026-05-25 12:00:57,344 [INFO] 0 new articles.
+2026-05-25 12:00:57,345 [INFO] Sleeping 30 min...
+2026-05-25 12:15:45,868 [INFO] ── Fetching news ──
+2026-05-25 12:16:05,104 [INFO] 0 new articles.
+2026-05-25 12:16:05,105 [INFO] Sleeping 30 min...
+2026-05-25 12:31:17,964 [INFO] ── Fetching news ──
+2026-05-25 12:31:29,537 [INFO] 0 new articles.
+2026-05-25 12:31:29,537 [INFO] Sleeping 30 min...
+2026-05-25 12:46:11,577 [INFO] ── Fetching news ──
+2026-05-25 12:46:25,417 [INFO] 0 new articles.
+2026-05-25 12:46:25,418 [INFO] Sleeping 30 min...
+2026-05-25 13:01:35,512 [INFO] ── Fetching news ──
+2026-05-25 13:01:45,740 [INFO] 0 new articles.
+2026-05-25 13:01:45,740 [INFO] Sleeping 30 min...
+2026-05-25 13:16:31,369 [INFO] ── Fetching news ──
+2026-05-25 13:16:44,384 [INFO] 0 new articles.
+2026-05-25 13:16:44,384 [INFO] Sleeping 30 min...
+2026-05-25 13:40:15,690 [INFO] ── Fetching news ──
+2026-05-25 13:40:26,154 [INFO] 0 new articles.
+2026-05-25 13:40:26,154 [INFO] Sleeping 30 min...
+2026-05-25 13:55:55,232 [INFO] ── Fetching news ──
+2026-05-25 13:56:06,870 [INFO] 0 new articles.
+2026-05-25 13:56:06,871 [INFO] Sleeping 30 min...
+2026-05-25 14:19:37,356 [INFO] ── Fetching news ──
+2026-05-25 14:19:46,639 [INFO] 0 new articles.
+2026-05-25 14:19:46,639 [INFO] Sleeping 30 min...
+2026-05-25 14:34:37,489 [INFO] ── Fetching news ──
+2026-05-25 14:34:49,817 [INFO] 1 new articles.
+2026-05-25 14:34:55,026 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 14:34:55,080 [INFO] 1 alerts to send.
+2026-05-25 14:34:56,536 [INFO] Telegram sent.
+2026-05-25 14:34:58,047 [INFO] Sleeping 30 min...
+2026-05-25 14:49:52,494 [INFO] ── Fetching news ──
+2026-05-25 14:50:04,558 [INFO] 1 new articles.
+2026-05-25 14:50:07,998 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 14:50:08,029 [INFO] 1 alerts to send.
+2026-05-25 14:50:09,830 [INFO] Telegram sent.
+2026-05-25 14:50:11,346 [INFO] Sleeping 30 min...
+2026-05-25 15:05:04,005 [INFO] ── Fetching news ──
+2026-05-25 15:05:14,036 [INFO] 0 new articles.
+2026-05-25 15:05:14,037 [INFO] Sleeping 30 min...
+2026-05-25 15:20:27,292 [INFO] ── Fetching news ──
+2026-05-25 15:20:37,738 [INFO] 0 new articles.
+2026-05-25 15:20:37,739 [INFO] Sleeping 30 min...
+2026-05-25 15:55:35,138 [INFO] ── Fetching news ──
+2026-05-25 15:56:14,406 [INFO] 0 new articles.
+2026-05-25 15:56:14,406 [INFO] Sleeping 30 min...
+2026-05-25 17:00:08,219 [INFO] ── Fetching news ──
+2026-05-25 17:00:19,405 [INFO] 2 new articles.
+2026-05-25 17:00:22,739 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 17:00:22,794 [INFO] 1 alerts to send.
+2026-05-25 17:00:24,639 [INFO] Telegram sent.
+2026-05-25 17:00:26,157 [INFO] Sleeping 30 min...
+2026-05-25 17:14:57,059 [INFO] ── Fetching news ──
+2026-05-25 17:15:07,091 [INFO] 2 new articles.
+2026-05-25 17:15:12,435 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 17:15:12,462 [INFO] 1 alerts to send.
+2026-05-25 17:15:13,976 [INFO] Telegram sent.
+2026-05-25 17:15:15,495 [INFO] Sleeping 30 min...
+2026-05-25 17:30:32,226 [INFO] ── Fetching news ──
+2026-05-25 17:30:45,722 [INFO] 0 new articles.
+2026-05-25 17:30:45,723 [INFO] Sleeping 30 min...
+2026-05-25 17:45:21,664 [INFO] ── Fetching news ──
+2026-05-25 17:45:33,858 [INFO] 0 new articles.
+2026-05-25 17:45:33,859 [INFO] Sleeping 30 min...
+2026-05-25 18:06:08,545 [INFO] ── Fetching news ──
+2026-05-25 18:06:19,643 [INFO] 0 new articles.
+2026-05-25 18:06:19,644 [INFO] Sleeping 30 min...
+2026-05-25 18:20:59,797 [INFO] ── Fetching news ──
+2026-05-25 18:21:09,299 [INFO] 0 new articles.
+2026-05-25 18:21:09,300 [INFO] Sleeping 30 min...
+2026-05-25 18:48:06,934 [INFO] ── Fetching news ──
+2026-05-25 18:48:16,643 [INFO] 0 new articles.
+2026-05-25 18:48:16,644 [INFO] Sleeping 30 min...
+2026-05-25 19:02:55,471 [INFO] ── Fetching news ──
+2026-05-25 19:03:04,746 [INFO] 0 new articles.
+2026-05-25 19:03:04,746 [INFO] Sleeping 30 min...
+2026-05-25 19:35:30,025 [INFO] ── Fetching news ──
+2026-05-25 19:35:40,352 [INFO] 1 new articles.
+2026-05-25 19:35:45,134 [INFO] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-05-25 19:35:45,195 [INFO] 0 alerts to send.
+2026-05-25 19:35:45,199 [INFO] Sleeping 30 min...
