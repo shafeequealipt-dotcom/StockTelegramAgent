@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-AI Stock News Agent — Enhanced Edition
+AI Stock News Agent — Enhanced Edition v2
 Features:
   1. Live price fetch (Yahoo Finance)
-  3. Daily 8 AM market digest
-  4. Sentiment trend tracking (3+ bearish = warning)
-  10. Telegram bot commands (/portfolio /news /score /pause /resume)
+  2. Daily 8 AM market digest
+  3. Sentiment trend tracking (3+ bearish = warning)
+  4. Telegram bot commands (/portfolio /news /score /pause /resume)
+  5. Expanded feeds: US markets, LLM updates, HuggingFace, AI research, inventions
 """
 
 import os, json, time, hashlib, logging, requests, feedparser, threading
 from datetime import datetime, timedelta
 from openai import OpenAI
+from dotenv import load_dotenv
+load_dotenv()
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -28,8 +31,8 @@ POLL_INTERVAL      = 30 * 60
 SEEN_CACHE         = "seen.json"
 SENTIMENT_CACHE    = "sentiment.json"
 MIN_SCORE          = 6
-BEARISH_THRESHOLD  = 3       # alerts in 7 days to trigger warning
-DAILY_DIGEST_HOUR  = 8       # 8 AM local time
+BEARISH_THRESHOLD  = 3
+DAILY_DIGEST_HOUR  = 8
 
 # ── Pause state ───────────────────────────────────────────────────────────
 paused_until = None
@@ -63,14 +66,39 @@ PORTFOLIO = {
     "AMD":  "AMD",
 }
 
+# ── RSS Feeds — Expanded ───────────────────────────────────────────────────
 RSS_FEEDS = [
-    ("Reuters Tech",   "https://feeds.reuters.com/reuters/technologyNews"),
-    ("TechCrunch AI",  "https://techcrunch.com/category/artificial-intelligence/feed/"),
-    ("VentureBeat AI", "https://venturebeat.com/category/ai/feed/"),
-    ("The Verge",      "https://www.theverge.com/rss/index.xml"),
-    ("CNBC Tech",      "https://www.cnbc.com/id/19854910/device/rss/rss.html"),
-    ("MarketWatch",    "https://feeds.marketwatch.com/marketwatch/internet"),
-    ("ZDNet",          "https://www.zdnet.com/topic/enterprise-software/rss.xml"),
+    # US Market & Finance
+    ("Reuters Business",     "https://feeds.reuters.com/reuters/businessNews"),
+    ("Reuters Tech",         "https://feeds.reuters.com/reuters/technologyNews"),
+    ("CNBC Markets",         "https://www.cnbc.com/id/20910258/device/rss/rss.html"),
+    ("CNBC Tech",            "https://www.cnbc.com/id/19854910/device/rss/rss.html"),
+    ("MarketWatch Top",      "https://feeds.marketwatch.com/marketwatch/topstories"),
+    ("MarketWatch Internet", "https://feeds.marketwatch.com/marketwatch/internet"),
+    ("Investors Business",   "https://www.investors.com/feed/"),
+
+    # AI & LLM News
+    ("TechCrunch AI",        "https://techcrunch.com/category/artificial-intelligence/feed/"),
+    ("VentureBeat AI",       "https://venturebeat.com/category/ai/feed/"),
+    ("The Verge",            "https://www.theverge.com/rss/index.xml"),
+    ("Ars Technica",         "https://feeds.arstechnica.com/arstechnica/index"),
+    ("MIT Tech Review",      "https://www.technologyreview.com/feed/"),
+    ("Wired",                "https://www.wired.com/feed/rss"),
+    ("ZDNet AI",             "https://www.zdnet.com/topic/artificial-intelligence/rss.xml"),
+
+    # HuggingFace & Open Source ML
+    ("HuggingFace Blog",     "https://huggingface.co/blog/feed.xml"),
+    ("Papers With Code",     "https://paperswithcode.com/latest.rss"),
+    ("Towards Data Science", "https://towardsdatascience.com/feed"),
+
+    # Major AI Labs
+    ("Google AI Blog",       "https://blog.google/technology/ai/rss/"),
+    ("OpenAI News",          "https://openai.com/news/rss.xml"),
+    ("Anthropic News",       "https://www.anthropic.com/news/rss.xml"),
+
+    # Tech & Inventions
+    ("IEEE Spectrum",        "https://spectrum.ieee.org/feeds/feed.rss"),
+    ("New Scientist Tech",   "https://www.newscientist.com/subject/technology/feed/"),
 ]
 
 # ── Cache helpers ──────────────────────────────────────────────────────────
@@ -95,19 +123,15 @@ def get_price(ticker: str) -> dict:
         r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
         data = r.json()
         meta = data["chart"]["result"][0]["meta"]
-        price     = round(meta.get("regularMarketPrice", 0), 2)
-        prev      = round(meta.get("previousClose", price), 2)
-        change    = round(price - prev, 2)
-        change_pct= round((change / prev) * 100, 2) if prev else 0
-        currency  = meta.get("currency", "USD")
-        market    = meta.get("marketState", "REGULAR")
+        price      = round(meta.get("regularMarketPrice", 0), 2)
+        prev       = round(meta.get("previousClose", price), 2)
+        change     = round(price - prev, 2)
+        change_pct = round((change / prev) * 100, 2) if prev else 0
+        currency   = meta.get("currency", "USD")
+        market     = meta.get("marketState", "REGULAR")
         return {
-            "price": price,
-            "change": change,
-            "change_pct": change_pct,
-            "currency": currency,
-            "market": market,
-            "error": False
+            "price": price, "change": change, "change_pct": change_pct,
+            "currency": currency, "market": market, "error": False
         }
     except Exception as ex:
         log.warning(f"Price fetch error {ticker}: {ex}")
@@ -123,20 +147,16 @@ def price_line(ticker: str) -> str:
 
 # ── FEATURE 4: Sentiment Tracker ──────────────────────────────────────────
 def load_sentiment() -> dict: return load_json(SENTIMENT_CACHE, {})
-
-def save_sentiment(s: dict): save_json(SENTIMENT_CACHE, s)
+def save_sentiment(s: dict):  save_json(SENTIMENT_CACHE, s)
 
 def record_sentiment(tickers: list, impact: str):
     sentiment = load_sentiment()
     now_str   = datetime.utcnow().isoformat()
     cutoff    = datetime.utcnow() - timedelta(days=7)
-
     for ticker in tickers:
         if ticker not in sentiment:
             sentiment[ticker] = []
-        # Append new entry
         sentiment[ticker].append({"impact": impact, "time": now_str})
-        # Prune older than 7 days
         sentiment[ticker] = [
             e for e in sentiment[ticker]
             if datetime.fromisoformat(e["time"]) > cutoff
@@ -144,23 +164,22 @@ def record_sentiment(tickers: list, impact: str):
     save_sentiment(sentiment)
 
 def check_sentiment_warning(tickers: list) -> list:
-    """Returns list of tickers with >= BEARISH_THRESHOLD bearish alerts in 7 days."""
     sentiment = load_sentiment()
     warnings  = []
     for ticker in tickers:
-        entries  = sentiment.get(ticker, [])
-        bearish  = sum(1 for e in entries if e["impact"] == "BEARISH")
+        entries = sentiment.get(ticker, [])
+        bearish = sum(1 for e in entries if e["impact"] == "BEARISH")
         if bearish >= BEARISH_THRESHOLD:
             warnings.append((ticker, bearish))
     return warnings
 
 # ── FEATURE 3: Daily Digest ────────────────────────────────────────────────
-digest_articles = []   # accumulate articles during the day
+digest_articles  = []
 last_digest_date = None
 
 def maybe_send_digest():
     global digest_articles, last_digest_date
-    now = datetime.now()
+    now   = datetime.now()
     today = now.date()
 
     if now.hour == DAILY_DIGEST_HOUR and last_digest_date != today:
@@ -169,36 +188,34 @@ def maybe_send_digest():
             send_telegram("📊 *Daily AI Market Digest*\n_No significant news in the past 24 hours._")
             return
 
-        # Sort by score
-        top = sorted(digest_articles, key=lambda x: x.get("relevance_score", 0), reverse=True)[:7]
+        top   = sorted(digest_articles, key=lambda x: x.get("relevance_score", 0), reverse=True)[:7]
         lines = [f"📊 *Daily AI Market Digest — {today.strftime('%b %d, %Y')}*\n━━━━━━━━━━━━━━━━━━━━"]
 
         for a in top:
-            ie     = {"BULLISH": "🟢", "BEARISH": "🔴", "NEUTRAL": "🟡"}.get(a.get("impact"), "⚪")
-            tickers= " ".join(f"${t}" for t in a.get("affected_tickers", []))
+            ie      = {"BULLISH": "🟢", "BEARISH": "🔴", "NEUTRAL": "🟡"}.get(a.get("impact"), "⚪")
+            tickers = " ".join(f"${t}" for t in a.get("affected_tickers", []))
             lines.append(
                 f"{ie} *{a['title'][:65]}*\n"
-                f"   {tickers or 'General'} | ⭐ {a.get('relevance_score')}/10\n"
+                f"   {tickers or 'General/AI'} | ⭐ {a.get('relevance_score')}/10\n"
                 f"   💡 {a.get('one_line','')[:80]}"
             )
 
-        # Price snapshot for top holdings
         lines.append("\n━━━━━━━━━━━━━━━━━━━━\n📈 *Morning Price Snapshot*")
         for ticker in ["NVDA", "MSFT", "INTC", "META", "AMD", "NOW"]:
             pl = price_line(ticker)
             if pl: lines.append(pl)
 
         send_telegram("\n\n".join(lines))
-        digest_articles = []   # reset for next day
+        digest_articles = []
 
 # ── News Fetcher ───────────────────────────────────────────────────────────
 def fetch_articles() -> list:
     arts   = []
-    cutoff = datetime.utcnow() - timedelta(hours=1)
+    cutoff = datetime.utcnow() - timedelta(hours=2)
     for src, url in RSS_FEEDS:
         try:
             feed = feedparser.parse(url)
-            for e in feed.entries[:8]:
+            for e in feed.entries[:10]:
                 pub = None
                 if hasattr(e, "published_parsed") and e.published_parsed:
                     pub = datetime(*e.published_parsed[:6])
@@ -229,21 +246,24 @@ def analyse(articles: list) -> list:
             for j, a in enumerate(batch)
         )
         prompt = (
-            f"You are an equity analyst. Portfolio:\n{port_str}\n\n"
+            f"You are an equity analyst and AI research tracker. Portfolio:\n{port_str}\n\n"
             f"Articles:\n{txt}\n\n"
-            "Return JSON array only. Each item needs: index, relevance_score(1-10), "
-            "affected_tickers(list), impact(BULLISH/BEARISH/NEUTRAL), one_line, "
-            "urgency(HIGH/MEDIUM/LOW). Only include score>=6."
+            "Return JSON array only. Each item: index, relevance_score(1-10), "
+            "affected_tickers(list from portfolio or empty list), impact(BULLISH/BEARISH/NEUTRAL), "
+            "one_line, urgency(HIGH/MEDIUM/LOW), category(MARKET/AI_LLM/HUGGINGFACE/INVENTION/OTHER).\n"
+            "Score>=6 for: portfolio stock news, new LLM releases, AI model updates, "
+            "HuggingFace model drops, major tech inventions, US market-moving events. "
+            "Only include items with score>=6."
         )
         try:
-            r    = client.chat.completions.create(
-                model="gpt-4o-mini", max_tokens=1000, temperature=0,
+            r = client.chat.completions.create(
+                model="gpt-4o-mini", max_tokens=1500, temperature=0,
                 messages=[
-                    {"role": "system", "content": "Respond with valid JSON array only."},
+                    {"role": "system", "content": "Respond with valid JSON array only. No markdown, no preamble."},
                     {"role": "user",   "content": prompt}
                 ]
             )
-            text = r.choices[0].message.content.strip().replace("```json","").replace("```","").strip()
+            text = r.choices[0].message.content.strip().replace("```json", "").replace("```", "").strip()
             for item in json.loads(text):
                 idx = item["index"] - 1
                 if idx < len(batch):
@@ -259,8 +279,12 @@ def send_telegram(msg: str):
     try:
         r = requests.post(
             f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
-            json={"chat_id": TELEGRAM_CHAT_ID, "text": msg,
-                  "parse_mode": "Markdown", "disable_web_page_preview": False},
+            json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": msg,
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": False
+            },
             timeout=10
         )
         r.raise_for_status()
@@ -271,25 +295,24 @@ def send_telegram(msg: str):
 def format_alert(a: dict) -> str:
     ie      = {"BULLISH": "🟢", "BEARISH": "🔴", "NEUTRAL": "🟡"}.get(a.get("impact"), "⚪")
     ue      = {"HIGH": "🚨", "MEDIUM": "⚠️", "LOW": "📌"}.get(a.get("urgency"), "📌")
+    cat     = {"MARKET": "📊", "AI_LLM": "🧠", "HUGGINGFACE": "🤗", "INVENTION": "💡", "OTHER": "📰"}.get(a.get("category"), "📰")
     tickers = a.get("affected_tickers", [])
-    t_str   = " ".join(f"`${t}`" for t in tickers) or "_None_"
+    t_str   = " ".join(f"`${t}`" for t in tickers) or "_General/AI_"
 
-    # Feature 1: live prices for affected tickers
-    price_lines = []
-    for t in tickers[:3]:   # max 3 to keep message compact
+    price_lines  = []
+    for t in tickers[:3]:
         pl = price_line(t)
         if pl: price_lines.append(pl)
 
-    # Feature 4: sentiment warnings
-    warnings     = check_sentiment_warning(tickers)
-    warning_lines= []
+    warnings      = check_sentiment_warning(tickers)
+    warning_lines = []
     for w_ticker, count in warnings:
         warning_lines.append(f"🔔 *Sentiment Warning:* `${w_ticker}` has {count} bearish alerts this week!")
 
     msg = (
-        f"{ue} *AI STOCK ALERT* {ue}\n"
+        f"{ue} *AI STOCK & TECH ALERT* {ue}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"📰 *{a['title']}*\n"
+        f"{cat} *{a['title']}*\n"
         f"🏷 {a['source']}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"{ie} *{a.get('impact')}* | ⭐ {a.get('relevance_score')}/10\n"
@@ -321,23 +344,21 @@ def handle_commands():
         updates = r.json().get("result", [])
         for update in updates:
             last_update_id = update["update_id"]
-            msg = update.get("message", {})
-            text = msg.get("text", "").strip().lower()
+            msg     = update.get("message", {})
+            text    = msg.get("text", "").strip().lower()
             chat_id = str(msg.get("chat", {}).get("id", ""))
 
             if chat_id != TELEGRAM_CHAT_ID:
                 continue
 
-            # /portfolio — show all holdings with live prices
             if text == "/portfolio":
                 lines = ["📊 *Your Portfolio — Live Prices*\n━━━━━━━━━━━━━━━━━━━━"]
-                for ticker in list(PORTFOLIO.keys())[:15]:   # first 15
+                for ticker in list(PORTFOLIO.keys())[:15]:
                     pl = price_line(ticker)
                     if pl: lines.append(pl)
                     else:  lines.append(f"⚪ *{ticker}*: price unavailable")
                 send_telegram("\n".join(lines))
 
-            # /news TICKER — on-demand news for a ticker
             elif text.startswith("/news"):
                 parts  = text.split()
                 ticker = parts[1].upper() if len(parts) > 1 else ""
@@ -356,7 +377,6 @@ def handle_commands():
                     else:
                         send_telegram(f"📰 Latest: *{relevant[0]['title']}*\n🔗 {relevant[0]['link']}")
 
-            # /score TICKER — sentiment score for a ticker
             elif text.startswith("/score"):
                 parts  = text.split()
                 ticker = parts[1].upper() if len(parts) > 1 else ""
@@ -382,22 +402,19 @@ def handle_commands():
                     f"{'⚠️ WARNING: High bearish activity!' if bearish >= BEARISH_THRESHOLD else '✅ Sentiment normal'}"
                 )
 
-            # /pause — pause alerts for 2 hours
             elif text.startswith("/pause"):
                 with paused_lock:
                     paused_until = datetime.utcnow() + timedelta(hours=2)
                 send_telegram("⏸ *Alerts paused for 2 hours.*\nSend /resume to restart early.")
 
-            # /resume — resume alerts
             elif text == "/resume":
                 with paused_lock:
                     paused_until = None
                 send_telegram("▶️ *Alerts resumed!*")
 
-            # /help
-            elif text == "/help" or text == "/start":
+            elif text in ("/help", "/start"):
                 send_telegram(
-                    "🤖 *AI Stock News Agent — Commands*\n"
+                    "🤖 *AI Stock & Tech News Agent — Commands*\n"
                     "━━━━━━━━━━━━━━━━━━━━\n"
                     "/portfolio — live prices for all holdings\n"
                     "/news NVDA — latest news for a ticker\n"
@@ -419,15 +436,18 @@ def is_paused() -> bool:
 # ── Main Loop ──────────────────────────────────────────────────────────────
 def run():
     global digest_articles
-    log.info("🤖 Enhanced AI Stock News Agent started.")
+    log.info("🤖 Enhanced AI Stock News Agent v2 started.")
     send_telegram(
-        "🤖 *AI Stock News Agent LIVE — Enhanced*\n"
+        "🤖 *AI Stock & Tech News Agent v2 LIVE*\n"
         f"Watching {len(PORTFOLIO)} stocks | {len(RSS_FEEDS)} feeds\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
+        "✅ US Market news\n"
+        "✅ LLM & AI model updates\n"
+        "✅ HuggingFace releases\n"
+        "✅ Tech inventions\n"
         "✅ Live prices on alerts\n"
         "✅ Daily 8 AM digest\n"
         "✅ Sentiment trend tracking\n"
-        "✅ Bot commands active\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
         "Send /help to see all commands"
     )
@@ -435,10 +455,7 @@ def run():
     seen = load_seen()
 
     while True:
-        # Always handle commands (even when paused)
         handle_commands()
-
-        # Check daily digest
         maybe_send_digest()
 
         if is_paused():
@@ -456,11 +473,9 @@ def run():
             relevant = [a for a in alerts if a.get("relevance_score", 0) >= MIN_SCORE]
             log.info(f"{len(relevant)} alerts to send.")
 
-            # Accumulate for daily digest
             digest_articles.extend(relevant)
 
             for alert in relevant:
-                # Record sentiment
                 record_sentiment(
                     alert.get("affected_tickers", []),
                     alert.get("impact", "NEUTRAL")
@@ -471,7 +486,7 @@ def run():
             for a in new_arts: seen.add(a["id"])
             save_seen(seen)
 
-        log.info("Sleeping 30 min...")
+        log.info(f"Sleeping {POLL_INTERVAL // 60} min...")
         time.sleep(POLL_INTERVAL)
 
 if __name__ == "__main__":
