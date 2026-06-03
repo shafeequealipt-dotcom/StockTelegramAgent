@@ -20,6 +20,40 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
+## Create a Telegram Bot
+
+Telegram bots are created and managed through the official `@BotFather` bot.
+
+1. Open Telegram on desktop, mobile, or web.
+2. Search for `@BotFather` and open the verified BotFather chat.
+3. Send `/newbot`.
+4. Enter a display name, for example `Stock Telegram Agent`.
+5. Enter a unique username ending in `bot`, for example `my_stock_alert_bot`.
+6. Copy the token BotFather returns. This is your `TELEGRAM_BOT_TOKEN`.
+
+Keep this token private. Anyone with the token can control your bot.
+
+## Get Your Telegram Chat ID
+
+For a private chat with the bot:
+
+1. Open your new bot in Telegram.
+2. Press **Start** or send `/start`.
+3. In PowerShell, replace `<your-telegram-bot-token>` with the token from BotFather and run:
+
+```powershell
+Invoke-RestMethod "https://api.telegram.org/bot<your-telegram-bot-token>/getUpdates"
+```
+
+4. In the response, find `message.chat.id`. That number is your `TELEGRAM_CHAT_ID`.
+
+For a group chat:
+
+1. Add the bot to the group.
+2. Send a message in the group, such as `/start`.
+3. Run the same `getUpdates` command.
+4. Use the `message.chat.id` value for the group. Group IDs are often negative numbers.
+
 Edit `.env` and set real values for:
 
 - `TELEGRAM_BOT_TOKEN`
