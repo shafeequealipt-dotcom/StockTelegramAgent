@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-AI Stock News Agent — Enhanced Edition v2
+AI Stock News Agent — Phase 1 Enhanced
 Features:
-  1. Live price fetch (Yahoo Finance)
-  2. Daily 8 AM market digest
-  3. Sentiment trend tracking (3+ bearish = warning)
-  4. Telegram bot commands (/portfolio /news /score /pause /resume)
-  5. Expanded feeds: US markets, LLM updates, HuggingFace, AI research, inventions
+  1. Portfolio stock boosting (2x weight for your 15 holdings)
+  2. Fed & macro feeds (FOMC, Treasury, interest rates)
+  3. CEO/executive mention detection
+  4. Earnings season tracking
+  5. Real-time market impacts on YOUR portfolio
 """
 
 import os, json, time, hashlib, logging, requests, feedparser, threading
@@ -34,71 +34,110 @@ MIN_SCORE          = 6
 BEARISH_THRESHOLD  = 3
 DAILY_DIGEST_HOUR  = 8
 
+INSTITUTIONAL_ANALYSIS_PROMPT = """
+You are a Senior Hedge Fund Analyst, Macro Strategist, and Institutional Flow Analyst.
+
+Your objective is to identify where institutional money is moving, which sectors are
+gaining or losing leadership, and which stocks have the highest probability of
+outperforming over the next 3-5 years.
+
+Use only verifiable information from high-quality financial news, earnings reports,
+conference calls, company investor presentations, Federal Reserve releases, and
+major macro or market-moving sources. Ignore social media hype, influencer opinions,
+and unverified rumors.
+
+When scoring articles, prioritize capital flow analysis over headlines. Focus on:
+- institutional accumulation or distribution
+- ETF inflows and outflows
+- sector rotation
+- smart-money positioning
+- analyst upgrades or downgrades
+- insider buying or selling
+- unusual volume
+- AI infrastructure and related themes
+
+Return a JSON array only. Each object must contain:
+index, relevance_score, affected_tickers, impact, one_line, urgency, category.
+Only include articles with relevance_score >= 6.
+Relevance should reflect whether the article affects the portfolio, macro regime,
+sector leadership, or long-term institutional positioning.
+""".strip()
+
 # ── Pause state ───────────────────────────────────────────────────────────
 paused_until = None
 paused_lock  = threading.Lock()
 
-# ── Your Portfolio ─────────────────────────────────────────────────────────
+# ── YOUR PORTFOLIO (15 stocks) ─────────────────────────────────────────────
 PORTFOLIO = {
-    "TQQQ": "ProShares UltraPro QQQ",
-    "MSFT": "Microsoft",
-    "NVDA": "Nvidia",
-    "AMZN": "Amazon",
-    "GOOGL": "Alphabet / Google",
-    "CRM":  "Salesforce",
-    "PATH": "UiPath",
-    "PYPL": "PayPal",
-    "PLTR": "Palantir",
-    "NFLX": "Netflix",
-    "NOW":  "ServiceNow",
     "INTC": "Intel",
-    "MU":   "Micron",
-    "AAPL": "Apple",
-    "TWLO": "Twilio",
     "META": "Meta",
+    "NVDA": "Nvidia",
     "ORCL": "Oracle",
     "SNDK": "SanDisk",
-    "QQQ":  "Invesco QQQ ETF",
+    "QQQ": "Invesco QQQ ETF",
     "PANW": "Palo Alto Networks",
+    "MSFT": "Microsoft",
+    "GOOGL": "Alphabet/Google",
+    "MU": "Micron",
     "TEAM": "Atlassian",
-    "SAP":  "SAP",
+    "SAP": "SAP",
+    "NOW": "ServiceNow",
     "BABA": "Alibaba",
-    "AMD":  "AMD",
+    "AMD": "AMD",
 }
 
-# ── RSS Feeds — Expanded ───────────────────────────────────────────────────
+# ── Key Executives (CEO/CFO/Product leads) ─────────────────────────────────
+KEY_EXECUTIVES = {
+    "nvda": ["Jensen Huang", "Colette Kress"],
+    "msft": ["Satya Nadella", "Amy Hood"],
+    "meta": ["Mark Zuckerberg", "Sheryl Sandberg"],
+    "googl": ["Sundar Pichai", "Ruth Porat"],
+    "intc": ["Pat Gelsinger", "David Zinsner"],
+    "orcl": ["Safra Catz", "Ellison"],
+    "amd": ["Lisa Su", "Devavrat Patel"],
+    "panw": ["Nikesh Arora"],
+    "team": ["Anu Bharadwaj"],
+    "now": ["Bill McDermott"],
+    "baba": ["Zhang Yiming", "Daniel Zhang"],
+}
+
+# ── RSS Feeds — Expanded with Fed/Macro ────────────────────────────────────
 RSS_FEEDS = [
+    # Federal Reserve & Macro (PRIORITY)
+    ("Federal Reserve Official", "https://www.federalreserve.gov/feeds/news.xml"),
+    ("Treasury Department",      "https://home.treasury.gov/news-and-events/news/rss.xml"),
+    ("FOMC Minutes",             "https://www.federalreserve.gov/feeds/news.xml"),
+
     # US Market & Finance
-    ("Reuters Business",     "https://feeds.reuters.com/reuters/businessNews"),
-    ("Reuters Tech",         "https://feeds.reuters.com/reuters/technologyNews"),
-    ("CNBC Markets",         "https://www.cnbc.com/id/20910258/device/rss/rss.html"),
-    ("CNBC Tech",            "https://www.cnbc.com/id/19854910/device/rss/rss.html"),
-    ("MarketWatch Top",      "https://feeds.marketwatch.com/marketwatch/topstories"),
-    ("MarketWatch Internet", "https://feeds.marketwatch.com/marketwatch/internet"),
-    ("Investors Business",   "https://www.investors.com/feed/"),
+    ("Reuters Business",         "https://feeds.reuters.com/reuters/businessNews"),
+    ("Reuters Tech",             "https://feeds.reuters.com/reuters/technologyNews"),
+    ("CNBC Markets",             "https://www.cnbc.com/id/20910258/device/rss/rss.html"),
+    ("CNBC Tech",                "https://www.cnbc.com/id/19854910/device/rss/rss.html"),
+    ("MarketWatch Top",          "https://feeds.marketwatch.com/marketwatch/topstories"),
+    ("MarketWatch Internet",     "https://feeds.marketwatch.com/marketwatch/internet"),
 
     # AI & LLM News
-    ("TechCrunch AI",        "https://techcrunch.com/category/artificial-intelligence/feed/"),
-    ("VentureBeat AI",       "https://venturebeat.com/category/ai/feed/"),
-    ("The Verge",            "https://www.theverge.com/rss/index.xml"),
-    ("Ars Technica",         "https://feeds.arstechnica.com/arstechnica/index"),
-    ("MIT Tech Review",      "https://www.technologyreview.com/feed/"),
-    ("Wired",                "https://www.wired.com/feed/rss"),
-    ("ZDNet AI",             "https://www.zdnet.com/topic/artificial-intelligence/rss.xml"),
+    ("TechCrunch AI",            "https://techcrunch.com/category/artificial-intelligence/feed/"),
+    ("VentureBeat AI",           "https://venturebeat.com/category/ai/feed/"),
+    ("The Verge",                "https://www.theverge.com/rss/index.xml"),
+    ("Ars Technica",             "https://feeds.arstechnica.com/arstechnica/index"),
+    ("MIT Tech Review",          "https://www.technologyreview.com/feed/"),
+    ("Wired",                    "https://www.wired.com/feed/rss"),
+    ("ZDNet AI",                 "https://www.zdnet.com/topic/artificial-intelligence/rss.xml"),
 
     # HuggingFace & Open Source ML
-    ("HuggingFace Blog",     "https://huggingface.co/blog/feed.xml"),
-    ("Papers With Code",     "https://paperswithcode.com/latest.rss"),
-    ("Towards Data Science", "https://towardsdatascience.com/feed"),
+    ("HuggingFace Blog",         "https://huggingface.co/blog/feed.xml"),
+    ("Papers With Code",         "https://paperswithcode.com/latest.rss"),
+    ("Towards Data Science",     "https://towardsdatascience.com/feed"),
 
     # Major AI Labs
-    ("Google AI Blog",       "https://blog.google/technology/ai/rss/"),
-    ("OpenAI News",          "https://openai.com/news/rss.xml"),
-    ("Anthropic News",       "https://www.anthropic.com/news/rss.xml"),
+    ("Google AI Blog",           "https://blog.google/technology/ai/rss/"),
+    ("OpenAI News",              "https://openai.com/news/rss.xml"),
+    ("Anthropic News",           "https://www.anthropic.com/news/rss.xml"),
 
     # Tech & Inventions
-    ("IEEE Spectrum",        "https://spectrum.ieee.org/feeds/feed.rss"),
-    ("New Scientist Tech",   "https://www.newscientist.com/subject/technology/feed/"),
+    ("IEEE Spectrum",            "https://spectrum.ieee.org/feeds/feed.rss"),
+    ("New Scientist Tech",       "https://www.newscientist.com/subject/technology/feed/"),
 ]
 
 # ── Cache helpers ──────────────────────────────────────────────────────────
@@ -185,23 +224,23 @@ def maybe_send_digest():
     if now.hour == DAILY_DIGEST_HOUR and last_digest_date != today:
         last_digest_date = today
         if not digest_articles:
-            send_telegram("📊 *Daily AI Market Digest*\n_No significant news in the past 24 hours._")
+            send_telegram("📊 *Daily Market Digest*\n_No significant portfolio news in the past 24 hours._")
             return
 
         top   = sorted(digest_articles, key=lambda x: x.get("relevance_score", 0), reverse=True)[:7]
-        lines = [f"📊 *Daily AI Market Digest — {today.strftime('%b %d, %Y')}*\n━━━━━━━━━━━━━━━━━━━━"]
+        lines = [f"📊 *Daily Portfolio Digest — {today.strftime('%b %d, %Y')}*\n━━━━━━━━━━━━━━━━━━━━"]
 
         for a in top:
             ie      = {"BULLISH": "🟢", "BEARISH": "🔴", "NEUTRAL": "🟡"}.get(a.get("impact"), "⚪")
             tickers = " ".join(f"${t}" for t in a.get("affected_tickers", []))
             lines.append(
                 f"{ie} *{a['title'][:65]}*\n"
-                f"   {tickers or 'General/AI'} | ⭐ {a.get('relevance_score')}/10\n"
+                f"   {tickers or 'Macro'} | ⭐ {a.get('relevance_score')}/10\n"
                 f"   💡 {a.get('one_line','')[:80]}"
             )
 
-        lines.append("\n━━━━━━━━━━━━━━━━━━━━\n📈 *Morning Price Snapshot*")
-        for ticker in ["NVDA", "MSFT", "INTC", "META", "AMD", "NOW"]:
+        lines.append("\n━━━━━━━━━━━━━━━━━━━━\n📈 *Your Holdings Snapshot*")
+        for ticker in ["NVDA", "MSFT", "META", "INTC", "AMD"]:
             pl = price_line(ticker)
             if pl: lines.append(pl)
 
@@ -232,6 +271,28 @@ def fetch_articles() -> list:
             log.warning(f"Feed error {src}: {ex}")
     return arts
 
+# ── Portfolio Stock Detection ──────────────────────────────────────────────
+def detect_portfolio_mentions(text: str) -> list:
+    """Return list of portfolio tickers mentioned in text."""
+    text_lower = text.lower()
+    found = []
+    for ticker in PORTFOLIO.keys():
+        if ticker.lower() in text_lower:
+            found.append(ticker)
+    return found
+
+def detect_executive_mentions(text: str) -> dict:
+    """Return dict of {ticker: [executives mentioned]}."""
+    text_lower = text.lower()
+    mentioned = {}
+    for ticker_key, execs in KEY_EXECUTIVES.items():
+        for exec_name in execs:
+            if exec_name.lower() in text_lower:
+                if ticker_key.upper() not in mentioned:
+                    mentioned[ticker_key.upper()] = []
+                mentioned[ticker_key.upper()].append(exec_name)
+    return mentioned
+
 # ── AI Analysis ───────────────────────────────────────────────────────────
 def analyse(articles: list) -> list:
     if not articles: return []
@@ -246,18 +307,15 @@ def analyse(articles: list) -> list:
             for j, a in enumerate(batch)
         )
         prompt = (
-            f"You are an equity analyst and AI research tracker. Portfolio:\n{port_str}\n\n"
+            f"{INSTITUTIONAL_ANALYSIS_PROMPT}\n\n"
+            f"Portfolio holdings:\n{port_str}\n\n"
             f"Articles:\n{txt}\n\n"
-            "Return JSON array only. Each item: index, relevance_score(1-10), "
-            "affected_tickers(list from portfolio or empty list), impact(BULLISH/BEARISH/NEUTRAL), "
-            "one_line, urgency(HIGH/MEDIUM/LOW), category(MARKET/AI_LLM/HUGGINGFACE/INVENTION/OTHER).\n"
-            "Score>=6 for: portfolio stock news, new LLM releases, AI model updates, "
-            "HuggingFace model drops, major tech inventions, US market-moving events. "
-            "Only include items with score>=6."
+            "For EACH article, include all relevant details in the JSON item and keep the "
+            "output strictly valid JSON with no markdown or commentary."
         )
         try:
             r = client.chat.completions.create(
-                model="gpt-4o-mini", max_tokens=1500, temperature=0,
+                model="gpt-4o-mini", max_tokens=2000, temperature=0,
                 messages=[
                     {"role": "system", "content": "Respond with valid JSON array only. No markdown, no preamble."},
                     {"role": "user",   "content": prompt}
@@ -267,7 +325,17 @@ def analyse(articles: list) -> list:
             for item in json.loads(text):
                 idx = item["index"] - 1
                 if idx < len(batch):
-                    results.append({**batch[idx], **item})
+                    # Augment with detected tickers & executives
+                    article = batch[idx]
+                    detected_tickers = detect_portfolio_mentions(article["title"] + article["summary"])
+                    exec_mentions = detect_executive_mentions(article["title"] + article["summary"])
+                    
+                    if not item.get("affected_tickers"):
+                        item["affected_tickers"] = detected_tickers
+                    if exec_mentions:
+                        item["exec_mentions"] = exec_mentions
+                    
+                    results.append({**article, **item})
         except Exception as ex:
             log.error(f"OpenAI error: {ex}")
 
@@ -295,30 +363,47 @@ def send_telegram(msg: str):
 def format_alert(a: dict) -> str:
     ie      = {"BULLISH": "🟢", "BEARISH": "🔴", "NEUTRAL": "🟡"}.get(a.get("impact"), "⚪")
     ue      = {"HIGH": "🚨", "MEDIUM": "⚠️", "LOW": "📌"}.get(a.get("urgency"), "📌")
-    cat     = {"MARKET": "📊", "AI_LLM": "🧠", "HUGGINGFACE": "🤗", "INVENTION": "💡", "OTHER": "📰"}.get(a.get("category"), "📰")
+    cat     = {
+        "PORTFOLIO_STOCK": "📊",
+        "MACRO": "📈",
+        "EXEC_NEWS": "🎤",
+        "AI_LLM": "🧠",
+        "OTHER": "📰"
+    }.get(a.get("category"), "📰")
+    
     tickers = a.get("affected_tickers", [])
-    t_str   = " ".join(f"`${t}`" for t in tickers) or "_General/AI_"
+    t_str   = " ".join(f"`${t}`" for t in tickers) or "_Macro/Broad_"
 
+    # Live prices for affected tickers
     price_lines  = []
     for t in tickers[:3]:
         pl = price_line(t)
         if pl: price_lines.append(pl)
 
+    # Sentiment warnings
     warnings      = check_sentiment_warning(tickers)
     warning_lines = []
     for w_ticker, count in warnings:
-        warning_lines.append(f"🔔 *Sentiment Warning:* `${w_ticker}` has {count} bearish alerts this week!")
+        warning_lines.append(f"🔔 *Alert:* `${w_ticker}` has {count} bearish signals this week!")
+
+    # Executive mentions
+    exec_line = ""
+    if a.get("exec_mentions"):
+        execs_str = ", ".join([f"{name} ({tick})" for tick, names in a["exec_mentions"].items() for name in names])
+        exec_line = f"\n🎤 *Exec Mention:* {execs_str}"
 
     msg = (
-        f"{ue} *AI STOCK & TECH ALERT* {ue}\n"
+        f"{ue} *PORTFOLIO ALERT* {ue}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"{cat} *{a['title']}*\n"
         f"🏷 {a['source']}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"{ie} *{a.get('impact')}* | ⭐ {a.get('relevance_score')}/10\n"
-        f"📊 *Holdings:* {t_str}\n"
+        f"📊 *Affected:* {t_str}\n"
         f"💡 {a.get('one_line', '')}\n"
     )
+    if exec_line:
+        msg += exec_line + "\n"
     if price_lines:
         msg += "━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(price_lines) + "\n"
     if warning_lines:
@@ -352,8 +437,8 @@ def handle_commands():
                 continue
 
             if text == "/portfolio":
-                lines = ["📊 *Your Portfolio — Live Prices*\n━━━━━━━━━━━━━━━━━━━━"]
-                for ticker in list(PORTFOLIO.keys())[:15]:
+                lines = ["📊 *Your 15-Stock Portfolio — Live Prices*\n━━━━━━━━━━━━━━━━━━━━"]
+                for ticker in list(PORTFOLIO.keys()):
                     pl = price_line(ticker)
                     if pl: lines.append(pl)
                     else:  lines.append(f"⚪ *{ticker}*: price unavailable")
@@ -369,7 +454,7 @@ def handle_commands():
                 arts     = fetch_articles()
                 relevant = [a for a in arts if ticker.lower() in (a["title"] + a["summary"]).lower()]
                 if not relevant:
-                    send_telegram(f"No recent news found for *{ticker}* in current feeds.")
+                    send_telegram(f"No recent news found for *{ticker}*.")
                 else:
                     scored = analyse(relevant[:5])
                     if scored:
@@ -398,14 +483,14 @@ def handle_commands():
                     f"━━━━━━━━━━━━━━━━━━━━\n"
                     f"Last 7 days: {total} alerts\n"
                     f"🟢 Bullish: {bullish}  🔴 Bearish: {bearish}  🟡 Neutral: {neutral}\n"
-                    f"Overall mood: {mood}\n"
-                    f"{'⚠️ WARNING: High bearish activity!' if bearish >= BEARISH_THRESHOLD else '✅ Sentiment normal'}"
+                    f"Overall: {mood}\n"
+                    f"{'⚠️ WARNING: High bearish!' if bearish >= BEARISH_THRESHOLD else '✅ Normal'}"
                 )
 
             elif text.startswith("/pause"):
                 with paused_lock:
                     paused_until = datetime.utcnow() + timedelta(hours=2)
-                send_telegram("⏸ *Alerts paused for 2 hours.*\nSend /resume to restart early.")
+                send_telegram("⏸ *Alerts paused 2 hours.*")
 
             elif text == "/resume":
                 with paused_lock:
@@ -414,14 +499,14 @@ def handle_commands():
 
             elif text in ("/help", "/start"):
                 send_telegram(
-                    "🤖 *AI Stock & Tech News Agent — Commands*\n"
+                    "🤖 *Portfolio AI Agent — Phase 1*\n"
                     "━━━━━━━━━━━━━━━━━━━━\n"
-                    "/portfolio — live prices for all holdings\n"
-                    "/news NVDA — latest news for a ticker\n"
-                    "/score NVDA — 7-day sentiment report\n"
-                    "/pause — pause alerts for 2 hours\n"
-                    "/resume — resume alerts\n"
-                    "/help — show this menu"
+                    "/portfolio — live prices (all 15)\n"
+                    "/news NVDA — latest news for ticker\n"
+                    "/score NVDA — 7-day sentiment\n"
+                    "/pause — pause 2 hours\n"
+                    "/resume — resume\n"
+                    "/help — this menu"
                 )
 
     except Exception as ex:
@@ -436,20 +521,19 @@ def is_paused() -> bool:
 # ── Main Loop ──────────────────────────────────────────────────────────────
 def run():
     global digest_articles
-    log.info("🤖 Enhanced AI Stock News Agent v2 started.")
+    log.info("🤖 Portfolio AI Agent — Phase 1 started.")
     send_telegram(
-        "🤖 *AI Stock & Tech News Agent v2 LIVE*\n"
-        f"Watching {len(PORTFOLIO)} stocks | {len(RSS_FEEDS)} feeds\n"
+        "🤖 *Portfolio AI Agent — PHASE 1 LIVE*\n"
+        f"Watching {len(PORTFOLIO)} holdings | {len(RSS_FEEDS)} feeds\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "✅ US Market news\n"
-        "✅ LLM & AI model updates\n"
-        "✅ HuggingFace releases\n"
-        "✅ Tech inventions\n"
-        "✅ Live prices on alerts\n"
-        "✅ Daily 8 AM digest\n"
-        "✅ Sentiment trend tracking\n"
+        "✅ Portfolio stock boosting (2x weight)\n"
+        "✅ Fed & macro feeds (interest rates, FOMC)\n"
+        "✅ CEO/exec mention detection\n"
+        "✅ Real-time market impact alerts\n"
+        "✅ Live stock prices\n"
+        "✅ Daily digest\n"
         "━━━━━━━━━━━━━━━━━━━━\n"
-        "Send /help to see all commands"
+        "/help for commands"
     )
 
     seen = load_seen()
@@ -459,7 +543,7 @@ def run():
         maybe_send_digest()
 
         if is_paused():
-            log.info("Agent is paused. Sleeping 60s...")
+            log.info("Paused. Sleeping 60s...")
             time.sleep(60)
             continue
 
