@@ -6,7 +6,7 @@ A Python agent that watches market, technology, and AI RSS feeds, uses OpenAI to
 
 - Polls finance, technology, AI, and research RSS feeds.
 - Scores articles against a portfolio using OpenAI.
-- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/pause`, `/resume`, and `/help`.
+- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/report`, `/pause`, `/resume`, and `/help`.
 - Stores runtime state under `data/` and logs under `logs/`; neither should be committed.
 - Validates required secrets on startup and redacts tokens from logs.
 
@@ -81,6 +81,12 @@ Optional environment variables:
 - `REQUEST_TIMEOUT_SECONDS`: defaults to `10`.
 - `AGENT_DATA_DIR`: defaults to `data`.
 - `AGENT_LOG_DIR`: defaults to `logs`.
+- `ANALYSIS_PROMPT`: optional custom analysis instructions for the AI agent.
+- `ANALYSIS_PROMPT_FILE`: optional path to a UTF-8 text file containing custom analysis instructions. Use this instead of `ANALYSIS_PROMPT` for longer prompts.
+
+The custom analysis prompt changes how the agent evaluates articles. The JSON output contract is still enforced in code because Telegram alerts, scoring, and sentiment tracking depend on those fields.
+
+The `/report` command uses the built-in institutional market report prompt. It generates a Telegram-ready report from the bot's current market snapshot, portfolio prices, and recent feed articles. Sections without enough evidence are reported as unavailable rather than inferred.
 
 ## Security Notes
 

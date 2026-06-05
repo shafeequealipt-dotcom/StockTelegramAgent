@@ -31,6 +31,172 @@ load_dotenv()
 
 APP_NAME = "StockTelegramAgent"
 DEFAULT_USER_AGENT = "StockTelegramAgent/1.0 (+https://github.com/shafeequealipt-dotcom/StockTelegramAgent)"
+DEFAULT_ANALYSIS_INSTRUCTIONS = (
+    "You are an equity analyst and AI research tracker. Prioritize market-moving "
+    "news, direct portfolio impact, competitive AI developments, model releases, "
+    "semiconductor supply chain signals, cloud AI adoption, earnings implications, "
+    "regulatory risk, and major research or product announcements."
+)
+ANALYSIS_SYSTEM_PROMPT = (
+    "You are a careful equity analyst and AI research tracker. "
+    "Return valid JSON only. No markdown or commentary."
+)
+INSTITUTIONAL_REPORT_SYSTEM_PROMPT = (
+    "Use only the evidence supplied in the user message. Do not invent prices, "
+    "flows, filings, earnings details, or macro data. If a requested section is "
+    "not supported by supplied evidence, say 'Not available from supplied evidence'. "
+    "Separate facts from assumptions."
+)
+INSTITUTIONAL_REPORT_PROMPT = """
+You are a Senior Hedge Fund Analyst, Macro Strategist, and Institutional Flow Analyst.
+
+Your objective is to identify where institutional money is moving, which sectors are
+gaining or losing leadership, and which stocks have the highest probability of
+outperforming over the next 3-5 years.
+
+Use only verifiable information from:
+- Reuters
+- SEC EDGAR Filings
+- Federal Reserve releases
+- Earnings reports and conference calls
+- Company investor presentations
+- Government economic data (BLS, EIA, Census, Treasury)
+- Major fund flow reports
+- Industry reports
+- High-quality financial news sources
+
+Ignore social media hype, influencer opinions, and unverified rumors.
+
+==================================================
+PART 1 - MARKET SUMMARY
+==================================================
+
+Provide a concise market summary including:
+- Major index performance (S&P 500, Nasdaq, Dow, Russell 2000)
+- Treasury yield movements
+- Dollar Index movement
+- Oil, Natural Gas, Copper, Gold, Silver performance
+- Major macro events affecting markets
+- Key economic releases
+- Federal Reserve developments
+
+Explain why the market moved.
+
+==================================================
+PART 2 - NEWS ANALYSIS
+==================================================
+
+Identify:
+Top 10 Bullish News Events Today
+Top 10 Bearish News Events Today
+
+For each:
+- Headline
+- Stocks affected
+- Sector affected
+- Why it matters
+- Expected impact (Low / Medium / High)
+
+==================================================
+PART 3 - SECTOR ROTATION ANALYSIS
+==================================================
+
+Identify sectors experiencing strong inflows, moderate inflows, neutral flows,
+moderate outflows, and strong outflows. Include evidence, stocks benefiting or
+affected, and institutional rationale where evidence supports it.
+
+Determine whether money is rotating into growth, value, cyclicals, defensives,
+small caps, or large caps. Explain why.
+
+==================================================
+PART 4 - SMART MONEY DETECTION
+==================================================
+
+Detect evidence of institutional accumulation, institutional distribution, profit
+taking, hedge fund positioning, ETF inflows/outflows, insider buying, insider
+selling, analyst upgrades, analyst downgrades, and unusual volume activity.
+Rank conviction as Low, Medium, or High.
+
+==================================================
+PART 5 - AI THEME ANALYSIS
+==================================================
+
+Classify AI opportunities into:
+- FIRST-ORDER BENEFICIARIES: direct AI winners such as AI chips, accelerators,
+  GPU manufacturers, and AI software leaders.
+- SECOND-ORDER BENEFICIARIES: infrastructure providers such as data centers,
+  networking, power equipment, cooling systems, electrical equipment, and cloud
+  infrastructure.
+- THIRD-ORDER BENEFICIARIES: indirect beneficiaries such as copper, utilities,
+  construction, industrial automation, engineering firms, and energy infrastructure.
+
+For each category include top companies, current catalysts, revenue drivers,
+risks, and estimated growth runway.
+
+==================================================
+PART 6 - EMERGING THEMES
+==================================================
+
+Compare today's information with the previous 30 days. Identify themes
+accelerating, slowing, dying, and newly emerging. Score each theme:
+0 = Dying, 1-3 = Weak, 4-6 = Stable, 7-8 = Strong, 9-10 = Explosive.
+
+Examples: AI Infrastructure, Data Centers, Cloud, Cybersecurity, Nuclear Energy,
+Utilities, Copper, Grid Modernization, Robotics, Defense, Healthcare AI,
+Fintech, Industrial Automation.
+
+==================================================
+PART 7 - STOCK OPPORTUNITY SCREEN
+==================================================
+
+Identify top bullish and bearish stocks. For each bullish stock provide ticker,
+sector, current catalyst, why institutions may be buying, valuation attractiveness,
+3-5 year outlook, risk factors, and conviction score from 1-10. For each bearish
+stock provide ticker, sector, reason for weakness, whether the issue is temporary
+or structural, risk level, and probability of recovery.
+
+==================================================
+PART 8 - WINNERS AND LOSERS
+==================================================
+
+List top gainers and losers today and this week where evidence is available. For
+every stock explain what happened, why it moved, and whether the move is likely
+temporary or long-term.
+
+==================================================
+PART 9 - UNDERVALUED LONG-TERM OPPORTUNITIES
+==================================================
+
+Identify stocks where earnings growth may be underestimated, market sentiment is
+excessively negative, long-term secular tailwinds exist, cash flow is strong, and
+the balance sheet is healthy. Provide ticker, sector, reason, expected growth
+drivers, risk, and conviction score.
+
+==================================================
+PART 10 - OUTPUT TABLE
+==================================================
+
+Create a table:
+| Stock | Sector | Catalyst | Bullish/Bearish | Institutional Activity | Impact Score (1-10) | 3-5 Year Outlook |
+
+==================================================
+PART 11 - FINAL INVESTMENT CONCLUSION
+==================================================
+
+Conclude with:
+1. Where smart money appears to be moving today.
+2. Which sectors are becoming leaders.
+3. Which sectors are losing leadership.
+4. Best risk/reward opportunities.
+5. Most overcrowded trades.
+6. Top 10 stocks institutions appear to be accumulating.
+7. Top 10 stocks institutions appear to be distributing.
+8. Biggest opportunities created by recent profit taking.
+9. Highest conviction ideas for the next 3-5 years.
+
+Provide evidence for every conclusion. Do not speculate. Separate facts from
+assumptions. Prioritize capital flow analysis over headlines.
+""".strip()
 
 
 PORTFOLIO: dict[str, str] = {
@@ -87,6 +253,21 @@ RSS_FEEDS: list[tuple[str, str]] = [
 ]
 
 
+MARKET_SYMBOLS: dict[str, str] = {
+    "^GSPC": "S&P 500",
+    "^IXIC": "Nasdaq Composite",
+    "^DJI": "Dow Jones Industrial Average",
+    "^RUT": "Russell 2000",
+    "^TNX": "10-Year Treasury Yield",
+    "DX-Y.NYB": "U.S. Dollar Index",
+    "CL=F": "WTI Crude Oil",
+    "NG=F": "Natural Gas",
+    "HG=F": "Copper",
+    "GC=F": "Gold",
+    "SI=F": "Silver",
+}
+
+
 @dataclass(frozen=True)
 class Settings:
     telegram_bot_token: str
@@ -101,6 +282,7 @@ class Settings:
     request_timeout_seconds: int
     data_dir: Path
     log_dir: Path
+    analysis_instructions: str
 
     @property
     def seen_cache(self) -> Path:
@@ -126,6 +308,25 @@ def _get_int_env(name: str, default: int, minimum: int | None = None, maximum: i
     return value
 
 
+def _load_analysis_instructions() -> str:
+    prompt_file = os.getenv("ANALYSIS_PROMPT_FILE", "").strip()
+    inline_prompt = os.getenv("ANALYSIS_PROMPT", "").strip()
+    if prompt_file and inline_prompt:
+        raise ValueError("Set either ANALYSIS_PROMPT_FILE or ANALYSIS_PROMPT, not both")
+    if prompt_file:
+        path = Path(prompt_file).expanduser()
+        try:
+            content = path.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise RuntimeError(f"Unable to read ANALYSIS_PROMPT_FILE: {path}") from exc
+        if not content:
+            raise ValueError("ANALYSIS_PROMPT_FILE must not be empty")
+        return content
+    if inline_prompt:
+        return inline_prompt
+    return DEFAULT_ANALYSIS_INSTRUCTIONS
+
+
 def load_settings() -> Settings:
     missing = [
         name
@@ -148,6 +349,7 @@ def load_settings() -> Settings:
         request_timeout_seconds=_get_int_env("REQUEST_TIMEOUT_SECONDS", 10, minimum=1),
         data_dir=Path(os.getenv("AGENT_DATA_DIR", "data")),
         log_dir=Path(os.getenv("AGENT_LOG_DIR", "logs")),
+        analysis_instructions=_load_analysis_instructions(),
     )
 
 
@@ -397,9 +599,10 @@ class StockTelegramAgent:
                 for index, article in enumerate(batch)
             )
             prompt = (
-                "You are an equity analyst and AI research tracker.\n\n"
+                f"{self.settings.analysis_instructions}\n\n"
                 f"Portfolio:\n{portfolio}\n\n"
                 f"Articles:\n{article_text}\n\n"
+                "Output contract:\n"
                 "Return a JSON array only. Each object must contain: index, relevance_score "
                 "(integer 1-10), affected_tickers (list from the portfolio or empty list), "
                 "impact (BULLISH, BEARISH, or NEUTRAL), one_line, urgency "
@@ -413,7 +616,7 @@ class StockTelegramAgent:
                     max_tokens=1500,
                     temperature=0,
                     messages=[
-                        {"role": "system", "content": "Return valid JSON only. No markdown."},
+                        {"role": "system", "content": ANALYSIS_SYSTEM_PROMPT},
                         {"role": "user", "content": prompt},
                     ],
                 )
@@ -454,6 +657,97 @@ class StockTelegramAgent:
             self.log.info("Telegram message sent")
         except requests.RequestException as exc:
             self.log.error("Telegram send failed: %s", exc)
+
+    def send_telegram_chunks(self, message: str, chunk_size: int = 3900) -> None:
+        chunk = ""
+        for line in message.splitlines():
+            pending = f"{chunk}\n{line}".strip() if chunk else line
+            if len(pending) <= chunk_size:
+                chunk = pending
+                continue
+            if chunk:
+                self.send_telegram(chunk)
+            while len(line) > chunk_size:
+                self.send_telegram(line[:chunk_size])
+                line = line[chunk_size:]
+            chunk = line
+        if chunk:
+            self.send_telegram(chunk)
+
+    def market_snapshot(self) -> list[str]:
+        lines: list[str] = []
+        for symbol, name in MARKET_SYMBOLS.items():
+            price = self.get_price(symbol)
+            if price.get("error"):
+                lines.append(f"{name} ({symbol}): unavailable")
+                continue
+            sign = "+" if price["change"] >= 0 else ""
+            lines.append(
+                f"{name} ({symbol}): {price['price']} "
+                f"({sign}{price['change_pct']}%) | {price['market']}"
+            )
+        return lines
+
+    def portfolio_snapshot(self) -> list[str]:
+        lines: list[str] = []
+        for ticker, company in PORTFOLIO.items():
+            price = self.get_price(ticker)
+            if price.get("error"):
+                lines.append(f"{ticker} ({company}): unavailable")
+                continue
+            sign = "+" if price["change"] >= 0 else ""
+            lines.append(
+                f"{ticker} ({company}): {price['price']} {price['currency']} "
+                f"({sign}{price['change_pct']}%) | {price['market']}"
+            )
+        return lines
+
+    def build_institutional_report_prompt(self, articles: list[dict[str, Any]], max_articles: int = 60) -> str:
+        article_lines = []
+        for index, article in enumerate(articles[:max_articles], 1):
+            article_lines.append(
+                f"[{index}] Source: {article.get('source', '')}\n"
+                f"Title: {article.get('title', '')}\n"
+                f"Published: {article.get('published', '')}\n"
+                f"Summary: {article.get('summary', '')}\n"
+                f"Link: {article.get('link', '')}"
+            )
+
+        return (
+            f"{INSTITUTIONAL_REPORT_PROMPT}\n\n"
+            "Available evidence collected by this bot follows. Base every conclusion "
+            "only on this evidence. If the evidence does not support a requested item, "
+            "write 'Not available from supplied evidence'. Keep the Telegram report "
+            "concise but cover all parts.\n\n"
+            "Market snapshot:\n"
+            f"{chr(10).join(self.market_snapshot())}\n\n"
+            "Portfolio snapshot:\n"
+            f"{chr(10).join(self.portfolio_snapshot())}\n\n"
+            "Recent articles:\n"
+            f"{chr(10).join(article_lines) if article_lines else 'No recent articles available.'}"
+        )
+
+    def generate_institutional_report(self, articles: list[dict[str, Any]]) -> str:
+        response = self.openai.chat.completions.create(
+            model=self.settings.openai_model,
+            max_tokens=3500,
+            temperature=0,
+            messages=[
+                {"role": "system", "content": INSTITUTIONAL_REPORT_SYSTEM_PROMPT},
+                {"role": "user", "content": self.build_institutional_report_prompt(articles)},
+            ],
+        )
+        return response.choices[0].message.content or "No report generated."
+
+    def send_institutional_report(self) -> None:
+        self.send_telegram("Generating institutional market report...")
+        try:
+            report = self.generate_institutional_report(self.fetch_articles())
+        except Exception as exc:
+            self.log.error("Institutional report failed: %s", exc)
+            self.send_telegram("Institutional report failed. Check logs for details.")
+            return
+        self.send_telegram_chunks(f"Institutional Market Report\n\n{report}")
 
     def format_alert(self, article: dict[str, Any]) -> str:
         tickers = article.get("affected_tickers", [])
@@ -511,6 +805,8 @@ class StockTelegramAgent:
                 self.send_news_for_ticker(text)
             elif command.startswith("/score"):
                 self.send_score_for_ticker(text)
+            elif command == "/report":
+                self.send_institutional_report()
             elif command.startswith("/pause"):
                 with self.paused_lock:
                     self.paused_until = datetime.now(timezone.utc) + timedelta(hours=2)
@@ -579,6 +875,7 @@ class StockTelegramAgent:
             "/portfolio - live prices for holdings\n"
             "/news NVDA - latest news for a ticker\n"
             "/score NVDA - 7-day sentiment report\n"
+            "/report - institutional market report\n"
             "/pause - pause alerts for 2 hours\n"
             "/resume - resume alerts\n"
             "/help - show this menu"
