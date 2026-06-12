@@ -43,6 +43,11 @@ DEFAULT_MODEL_CHOICES = [
     "google/gemini-2.5-flash",
     "deepseek/deepseek-chat-v3.1",
     "meta-llama/llama-3.3-70b-instruct",
+    # Free-tier models (no OpenRouter credits required)
+    "google/gemma-4-31b-it:free",
+    "qwen/qwen3-next-80b-a3b-instruct:free",
+    "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openai/gpt-oss-120b:free",
 ]
 DEFAULT_ANALYSIS_INSTRUCTIONS = (
     "You are an equity analyst and AI research tracker. Prioritize market-moving "
