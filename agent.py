@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Stock and AI news Telegram agent.
 
-The agent polls RSS feeds, uses OpenAI to score relevant items, sends Telegram
-alerts, and tracks short-term ticker sentiment in local state files.
+The agent polls RSS feeds, uses an OpenRouter-hosted model to score relevant
+items, sends Telegram alerts, and tracks short-term ticker sentiment in local
+state files. The active model can be switched at runtime with the /model
+Telegram command.
 """
 
 from __future__ import annotations
@@ -31,6 +33,17 @@ load_dotenv()
 
 APP_NAME = "StockTelegramAgent"
 DEFAULT_USER_AGENT = "StockTelegramAgent/1.0 (+https://github.com/shafeequealipt-dotcom/StockTelegramAgent)"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = "openai/gpt-4o-mini"
+DEFAULT_MODEL_CHOICES = [
+    "openai/gpt-4o-mini",
+    "openai/gpt-4o",
+    "anthropic/claude-haiku-4.5",
+    "anthropic/claude-sonnet-4.5",
+    "google/gemini-2.5-flash",
+    "deepseek/deepseek-chat-v3.1",
+    "meta-llama/llama-3.3-70b-instruct",
+]
 DEFAULT_ANALYSIS_INSTRUCTIONS = (
     "You are an equity analyst and AI research tracker. Prioritize market-moving "
     "news, direct portfolio impact, competitive AI developments, model releases, "
@@ -272,8 +285,9 @@ MARKET_SYMBOLS: dict[str, str] = {
 class Settings:
     telegram_bot_token: str
     telegram_chat_id: str
-    openai_api_key: str
-    openai_model: str
+    openrouter_api_key: str
+    default_model: str
+    model_choices: tuple[str, ...]
     poll_interval_seconds: int
     min_score: int
     bearish_threshold: int
@@ -291,6 +305,10 @@ class Settings:
     @property
     def sentiment_cache(self) -> Path:
         return self.data_dir / "sentiment.json"
+
+    @property
+    def model_cache(self) -> Path:
+        return self.data_dir / "model.json"
 
 
 def _get_int_env(name: str, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
@@ -327,20 +345,32 @@ def _load_analysis_instructions() -> str:
     return DEFAULT_ANALYSIS_INSTRUCTIONS
 
 
+def _load_model_choices(default_model: str) -> tuple[str, ...]:
+    raw = os.getenv("OPENROUTER_MODELS", "")
+    choices = [model.strip() for model in raw.split(",") if model.strip()]
+    if not choices:
+        choices = list(DEFAULT_MODEL_CHOICES)
+    if default_model not in choices:
+        choices.insert(0, default_model)
+    return tuple(choices)
+
+
 def load_settings() -> Settings:
     missing = [
         name
-        for name in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "OPENAI_API_KEY")
+        for name in ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "OPENROUTER_API_KEY")
         if not os.getenv(name)
     ]
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
+    default_model = os.getenv("OPENROUTER_MODEL", DEFAULT_MODEL)
     return Settings(
         telegram_bot_token=os.environ["TELEGRAM_BOT_TOKEN"],
         telegram_chat_id=os.environ["TELEGRAM_CHAT_ID"],
-        openai_api_key=os.environ["OPENAI_API_KEY"],
-        openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+        openrouter_api_key=os.environ["OPENROUTER_API_KEY"],
+        default_model=default_model,
+        model_choices=_load_model_choices(default_model),
         poll_interval_seconds=_get_int_env("POLL_INTERVAL_SECONDS", 1800, minimum=60),
         min_score=_get_int_env("MIN_SCORE", 6, minimum=1, maximum=10),
         bearish_threshold=_get_int_env("BEARISH_THRESHOLD", 3, minimum=1),
@@ -386,7 +416,7 @@ def setup_logging(settings: Settings) -> logging.Logger:
     logger.propagate = False
 
     formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-    redactor = RedactingFilter([settings.telegram_bot_token, settings.openai_api_key])
+    redactor = RedactingFilter([settings.telegram_bot_token, settings.openrouter_api_key])
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
@@ -430,12 +460,24 @@ class StockTelegramAgent:
         self.log = setup_logging(settings)
         self.http = requests.Session()
         self.http.headers.update({"User-Agent": DEFAULT_USER_AGENT})
-        self.openai = OpenAI(api_key=settings.openai_api_key)
+        self.llm = OpenAI(api_key=settings.openrouter_api_key, base_url=OPENROUTER_BASE_URL)
+        self.model = self.load_model()
         self.paused_until: datetime | None = None
         self.paused_lock = threading.Lock()
         self.last_update_id = 0
         self.digest_articles: list[dict[str, Any]] = []
         self.last_digest_date: str | None = None
+
+    def load_model(self) -> str:
+        saved = load_json(self.settings.model_cache, {})
+        model = saved.get("model") if isinstance(saved, dict) else None
+        if isinstance(model, str) and model.strip():
+            return model.strip()
+        return self.settings.default_model
+
+    def set_model(self, model: str) -> None:
+        self.model = model
+        save_json(self.settings.model_cache, {"model": model})
 
     def load_seen(self) -> set[str]:
         return set(load_json(self.settings.seen_cache, []))
@@ -611,8 +653,8 @@ class StockTelegramAgent:
             )
 
             try:
-                response = self.openai.chat.completions.create(
-                    model=self.settings.openai_model,
+                response = self.llm.chat.completions.create(
+                    model=self.model,
                     max_tokens=1500,
                     temperature=0,
                     messages=[
@@ -626,7 +668,7 @@ class StockTelegramAgent:
                     if 0 <= index < len(batch):
                         results.append({**batch[index], **item})
             except Exception as exc:
-                self.log.error("OpenAI analysis failed: %s", exc)
+                self.log.error("OpenRouter analysis failed (%s): %s", self.model, exc)
 
         results.sort(key=lambda item: int(item.get("relevance_score", 0)), reverse=True)
         return results
@@ -636,7 +678,7 @@ class StockTelegramAgent:
         try:
             parsed = json.loads(cleaned)
         except json.JSONDecodeError as exc:
-            self.log.warning("OpenAI returned invalid JSON: %s", exc)
+            self.log.warning("Model returned invalid JSON: %s", exc)
             return []
         if not isinstance(parsed, list):
             return []
@@ -728,8 +770,8 @@ class StockTelegramAgent:
         )
 
     def generate_institutional_report(self, articles: list[dict[str, Any]]) -> str:
-        response = self.openai.chat.completions.create(
-            model=self.settings.openai_model,
+        response = self.llm.chat.completions.create(
+            model=self.model,
             max_tokens=3500,
             temperature=0,
             messages=[
@@ -805,6 +847,8 @@ class StockTelegramAgent:
                 self.send_news_for_ticker(text)
             elif command.startswith("/score"):
                 self.send_score_for_ticker(text)
+            elif command.startswith("/model"):
+                self.handle_model_command(text)
             elif command == "/report":
                 self.send_institutional_report()
             elif command.startswith("/pause"):
@@ -869,6 +913,43 @@ class StockTelegramAgent:
         ]
         self.send_telegram("\n".join(line for line in lines if line))
 
+    def handle_model_command(self, text: str) -> None:
+        parts = text.split(maxsplit=1)
+        choice = parts[1].strip() if len(parts) > 1 else ""
+
+        if not choice:
+            lines = [f"Current model: {self.model}", "", "Available models:"]
+            for index, model in enumerate(self.settings.model_choices, 1):
+                marker = " (active)" if model == self.model else ""
+                lines.append(f"{index}. {model}{marker}")
+            lines.extend(
+                [
+                    "",
+                    "Switch with /model <number> or /model <openrouter-model-id>",
+                    "Example: /model 2 or /model anthropic/claude-sonnet-4.5",
+                ]
+            )
+            self.send_telegram("\n".join(lines))
+            return
+
+        if choice.isdigit():
+            index = int(choice) - 1
+            if not 0 <= index < len(self.settings.model_choices):
+                self.send_telegram(
+                    f"Invalid number. Pick 1-{len(self.settings.model_choices)} or send /model to see the list."
+                )
+                return
+            model = self.settings.model_choices[index]
+        else:
+            model = choice
+            if not re.fullmatch(r"[A-Za-z0-9._:/-]+", model):
+                self.send_telegram("That does not look like a valid OpenRouter model id.")
+                return
+
+        self.set_model(model)
+        self.log.info("Model switched to %s", model)
+        self.send_telegram(f"Model switched to {model}. All analysis and reports now use this model.")
+
     def send_help(self) -> None:
         self.send_telegram(
             "AI Stock & Tech News Agent commands\n"
@@ -876,6 +957,7 @@ class StockTelegramAgent:
             "/news NVDA - latest news for a ticker\n"
             "/score NVDA - 7-day sentiment report\n"
             "/report - institutional market report\n"
+            "/model - show or switch the AI model\n"
             "/pause - pause alerts for 2 hours\n"
             "/resume - resume alerts\n"
             "/help - show this menu"
@@ -891,6 +973,7 @@ class StockTelegramAgent:
         self.send_telegram(
             f"Stock Telegram Agent is live\n"
             f"Watching {len(PORTFOLIO)} symbols across {len(RSS_FEEDS)} feeds.\n"
+            f"Model: {self.model} (via OpenRouter)\n"
             "Send /help to see commands."
         )
 

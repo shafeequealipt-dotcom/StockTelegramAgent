@@ -1,12 +1,13 @@
 # Stock Telegram Agent
 
-A Python agent that watches market, technology, and AI RSS feeds, uses OpenAI to score relevant stories, and sends Telegram alerts for a configured stock portfolio.
+A Python agent that watches market, technology, and AI RSS feeds, uses an OpenRouter-hosted AI model to score relevant stories, and sends Telegram alerts for a configured stock portfolio.
 
 ## Features
 
 - Polls finance, technology, AI, and research RSS feeds.
-- Scores articles against a portfolio using OpenAI.
-- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/report`, `/pause`, `/resume`, and `/help`.
+- Scores articles against a portfolio using any model available on [OpenRouter](https://openrouter.ai/models).
+- Switch the active model from Telegram with `/model` — the choice persists across restarts.
+- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/report`, `/model`, `/pause`, `/resume`, and `/help`.
 - Stores runtime state under `data/` and logs under `logs/`; neither should be committed.
 - Validates required secrets on startup and redacts tokens from logs.
 
@@ -58,7 +59,7 @@ Edit `.env` and set real values for:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
-- `OPENAI_API_KEY`
+- `OPENROUTER_API_KEY` (create one at https://openrouter.ai/keys)
 
 Do not commit `.env`, logs, or runtime state files.
 
@@ -72,7 +73,8 @@ python agent.py
 
 Optional environment variables:
 
-- `OPENAI_MODEL`: defaults to `gpt-4o-mini`.
+- `OPENROUTER_MODEL`: default model on startup; defaults to `openai/gpt-4o-mini`.
+- `OPENROUTER_MODELS`: comma-separated list of model ids offered by the `/model` command. A sensible default list is built in.
 - `POLL_INTERVAL_SECONDS`: defaults to `1800`.
 - `MIN_SCORE`: defaults to `6`.
 - `BEARISH_THRESHOLD`: defaults to `3`.
@@ -85,6 +87,17 @@ Optional environment variables:
 - `ANALYSIS_PROMPT_FILE`: optional path to a UTF-8 text file containing custom analysis instructions. Use this instead of `ANALYSIS_PROMPT` for longer prompts.
 
 The custom analysis prompt changes how the agent evaluates articles. The JSON output contract is still enforced in code because Telegram alerts, scoring, and sentiment tracking depend on those fields.
+
+## Switching Models from Telegram
+
+Send `/model` to the bot to see the current model and the numbered list of available models. Switch with either form:
+
+```
+/model 3
+/model anthropic/claude-sonnet-4.5
+```
+
+Any valid OpenRouter model id is accepted, even if it is not in the list. The selection is saved to `data/model.json` and survives restarts.
 
 The `/report` command uses the built-in institutional market report prompt. It generates a Telegram-ready report from the bot's current market snapshot, portfolio prices, and recent feed articles. Sections without enough evidence are reported as unavailable rather than inferred.
 
