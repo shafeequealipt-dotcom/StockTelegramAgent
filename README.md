@@ -96,10 +96,11 @@ Send `/q` followed by any question:
 
 ```
 /q why is NVDA down today?
+/q what is the status of arm now?
 /q summarize what the Fed said this week
 ```
 
-The agent answers with the active model, grounded in the live market snapshot, prices for any portfolio tickers you mention, and the most recently fetched headlines.
+The agent resolves any stock, ETF, or index mentioned in the question — it does not have to be in your portfolio. For each one it fetches the live price and 1-year history from Yahoo Finance, computes returns (1d/1w/1m/3m/6m/1y), 52-week range, 50/200-day averages, and volume, and searches the web for its latest news via Google News. The answer comes from the active model grounded in that data, followed by a 1-year price chart image for each stock.
 
 ## Switching Models from Telegram
 

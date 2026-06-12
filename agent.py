@@ -10,6 +10,7 @@ Telegram command.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import logging
 import os
@@ -61,13 +62,22 @@ ANALYSIS_SYSTEM_PROMPT = (
 )
 QA_SYSTEM_PROMPT = (
     "You are a sharp, honest equity and AI market assistant chatting on Telegram. "
-    "Use the live market data, portfolio prices, and recent headlines supplied in "
-    "the user message as your primary evidence. You may add well-known background "
-    "knowledge, but clearly separate it from the supplied live data and never "
-    "invent prices, numbers, or news. Answer directly and concisely in plain text "
-    "suitable for Telegram: no markdown tables, no headers, short paragraphs or "
-    "simple dashes for lists. This is not financial advice and you should note "
-    "that only when the user asks for buy/sell decisions."
+    "Use the live market data, per-stock statistics, and news headlines supplied "
+    "in the user message as your primary evidence. You may add well-known "
+    "background knowledge (business model, segments, competitors), but clearly "
+    "separate it from the supplied live data and never invent prices, numbers, or "
+    "news. Answer directly and concisely in plain text suitable for Telegram: no "
+    "markdown tables, no headers, short paragraphs or simple dashes for lists. "
+    "This is not financial advice and you should note that only when the user "
+    "asks for buy/sell decisions."
+)
+TICKER_EXTRACTION_PROMPT = (
+    "List the stock ticker symbols for any public companies, ETFs, or market "
+    "indexes mentioned in the question below. Resolve company names to their "
+    "primary US-listed ticker (for example 'arm' or 'arm holdings' -> ARM, "
+    "'palantir' -> PLTR, 'nasdaq index' -> ^IXIC). Ignore words that merely look "
+    "like tickers but are used as plain English. Return a JSON array of ticker "
+    "strings only, [] if none.\n\nQuestion: "
 )
 INSTITUTIONAL_REPORT_SYSTEM_PROMPT = (
     "Use only the evidence supplied in the user message. Do not invent prices, "
@@ -567,6 +577,180 @@ class StockTelegramAgent:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed
 
+    def get_history(self, ticker: str, range_: str = "1y") -> dict[str, Any] | None:
+        """Daily price history plus quote metadata for any Yahoo symbol."""
+        try:
+            response = self.http.get(
+                f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}",
+                params={"interval": "1d", "range": range_},
+                timeout=self.settings.request_timeout_seconds,
+            )
+            response.raise_for_status()
+            result = (response.json().get("chart", {}).get("result") or [None])[0]
+            if not result:
+                return None
+            quote = result.get("indicators", {}).get("quote", [{}])[0]
+            points = [
+                (ts, close)
+                for ts, close in zip(result.get("timestamp", []), quote.get("close", []))
+                if close is not None
+            ]
+            if not points:
+                return None
+            return {
+                "meta": result.get("meta", {}),
+                "timestamps": [p[0] for p in points],
+                "closes": [p[1] for p in points],
+                "volumes": [v for v in quote.get("volume", []) if v is not None],
+            }
+        except (requests.RequestException, ValueError, KeyError) as exc:
+            self.log.warning("History fetch failed for %s: %s", ticker, exc)
+            return None
+
+    @staticmethod
+    def _pct(new: float, old: float) -> str:
+        if not old:
+            return "n/a"
+        return f"{(new - old) / old * 100:+.1f}%"
+
+    def ticker_overview(self, ticker: str, history: dict[str, Any]) -> list[str]:
+        """Human-readable stats computed from price history."""
+        meta = history["meta"]
+        closes = history["closes"]
+        price = closes[-1]
+        name = meta.get("longName") or meta.get("shortName") or ticker
+        lines = [
+            f"{ticker} ({name}) on {meta.get('fullExchangeName', meta.get('exchangeName', ''))}",
+            f"Price: {price:.2f} {meta.get('currency', 'USD')} | Market: {meta.get('marketState', 'UNKNOWN')}",
+        ]
+        spans = [("1 day", 2), ("1 week", 6), ("1 month", 22), ("3 months", 64), ("6 months", 127), ("1 year", len(closes))]
+        changes = [
+            f"{label}: {self._pct(price, closes[-offset])}"
+            for label, offset in spans
+            if len(closes) >= offset
+        ]
+        if changes:
+            lines.append("Returns: " + " | ".join(changes))
+        high = meta.get("fiftyTwoWeekHigh") or max(closes)
+        low = meta.get("fiftyTwoWeekLow") or min(closes)
+        lines.append(f"52-week range: {low:.2f} - {high:.2f} ({self._pct(price, high)} from high)")
+        if len(closes) >= 50:
+            sma50 = sum(closes[-50:]) / 50
+            lines.append(f"50-day average: {sma50:.2f} (price is {self._pct(price, sma50)} vs it)")
+        if len(closes) >= 200:
+            sma200 = sum(closes[-200:]) / 200
+            lines.append(f"200-day average: {sma200:.2f} (price is {self._pct(price, sma200)} vs it)")
+        volumes = history.get("volumes", [])
+        if len(volumes) >= 20:
+            avg_volume = sum(volumes[-20:]) / 20
+            lines.append(f"Last volume: {volumes[-1]:,.0f} vs 20-day average {avg_volume:,.0f}")
+        return lines
+
+    def fetch_ticker_news(self, query: str, limit: int = 8) -> list[str]:
+        """Search the web for recent news about a ticker via Google News RSS."""
+        url = (
+            "https://news.google.com/rss/search?q="
+            + requests.utils.quote(f"{query} stock")
+            + "&hl=en-US&gl=US&ceid=US:en"
+        )
+        try:
+            response = self.http.get(url, timeout=self.settings.request_timeout_seconds)
+            response.raise_for_status()
+            feed = feedparser.parse(response.content)
+            return [
+                f"- {entry.get('title', '').strip()} ({entry.get('published', '')})"
+                for entry in feed.entries[:limit]
+            ]
+        except requests.RequestException as exc:
+            self.log.warning("News search failed for %s: %s", query, exc)
+            return []
+
+    def render_chart(self, ticker: str, history: dict[str, Any]) -> bytes | None:
+        """1-year price chart PNG; returns None if matplotlib is unavailable."""
+        try:
+            import matplotlib
+            matplotlib.use("Agg")
+            import matplotlib.pyplot as plt
+        except ImportError:
+            self.log.warning("matplotlib not installed; skipping chart for %s", ticker)
+            return None
+
+        closes = history["closes"]
+        dates = [datetime.fromtimestamp(ts, tz=timezone.utc) for ts in history["timestamps"]]
+        name = history["meta"].get("longName") or ticker
+        color = "#16a34a" if closes[-1] >= closes[0] else "#dc2626"
+
+        fig, ax = plt.subplots(figsize=(9, 4.5), dpi=110)
+        ax.plot(dates, closes, color=color, linewidth=1.6)
+        ax.fill_between(dates, closes, min(closes), color=color, alpha=0.12)
+        if len(closes) >= 50:
+            sma50 = [sum(closes[max(0, i - 49) : i + 1]) / min(i + 1, 50) for i in range(len(closes))]
+            ax.plot(dates, sma50, color="#2563eb", linewidth=1.0, linestyle="--", label="50-day avg")
+            ax.legend(loc="upper left", frameon=False, fontsize=8)
+        change = self._pct(closes[-1], closes[0])
+        ax.set_title(f"{name} ({ticker}) - 1 year  |  {closes[-1]:.2f} {history['meta'].get('currency', 'USD')}  ({change})", fontsize=11)
+        ax.grid(alpha=0.25)
+        ax.spines[["top", "right"]].set_visible(False)
+        fig.autofmt_xdate()
+        fig.tight_layout()
+
+        buffer = io.BytesIO()
+        fig.savefig(buffer, format="png")
+        plt.close(fig)
+        return buffer.getvalue()
+
+    def send_telegram_photo(self, photo: bytes, caption: str = "") -> None:
+        try:
+            response = self.http.post(
+                f"https://api.telegram.org/bot{self.settings.telegram_bot_token}/sendPhoto",
+                data={"chat_id": self.settings.telegram_chat_id, "caption": caption[:1024]},
+                files={"photo": ("chart.png", photo, "image/png")},
+                timeout=self.settings.request_timeout_seconds + 20,
+            )
+            response.raise_for_status()
+            self.log.info("Telegram photo sent")
+        except requests.RequestException as exc:
+            self.log.error("Telegram photo send failed: %s", exc)
+
+    def resolve_tickers(self, question: str) -> list[str]:
+        """Find ticker symbols the question refers to, portfolio or not."""
+        tickers: list[str] = []
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                max_tokens=100,
+                temperature=0,
+                messages=[
+                    {"role": "system", "content": "Return valid JSON only. No markdown or commentary."},
+                    {"role": "user", "content": TICKER_EXTRACTION_PROMPT + question},
+                ],
+            )
+            content = (response.choices[0].message.content or "[]").strip()
+            content = content.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            parsed = json.loads(content)
+            if isinstance(parsed, list):
+                tickers = [
+                    str(item).upper().strip()
+                    for item in parsed
+                    if isinstance(item, str) and re.fullmatch(r"[\^]?[A-Za-z0-9.=-]{1,10}", str(item).strip())
+                ]
+        except Exception as exc:
+            self.log.warning("Ticker extraction failed (%s): %s", self.model, exc)
+
+        if not tickers:
+            # Fallback: explicit upper-case ticker-like tokens in the question.
+            tickers = [
+                token
+                for token in re.findall(r"\b[A-Z]{1,5}\b", question)
+                if token in PORTFOLIO or len(token) >= 2
+            ]
+
+        unique: list[str] = []
+        for ticker in tickers:
+            if ticker not in unique:
+                unique.append(ticker)
+        return unique[:3]
+
     def record_sentiment(self, tickers: list[str], impact: str) -> None:
         sentiment = self.load_sentiment()
         now = datetime.now(timezone.utc)
@@ -971,30 +1155,44 @@ class StockTelegramAgent:
 
         self.send_telegram("Thinking...")
 
+        tickers = self.resolve_tickers(question)
+        ticker_sections: list[str] = []
+        charts: list[tuple[str, bytes]] = []
+        for ticker in tickers:
+            history = self.get_history(ticker)
+            if history is None:
+                ticker_sections.append(f"{ticker}: no price data found on Yahoo Finance.")
+                continue
+            section = "\n".join(self.ticker_overview(ticker, history))
+            name = history["meta"].get("longName") or ticker
+            news = self.fetch_ticker_news(name if len(name) < 40 else ticker)
+            if news:
+                section += "\nLatest news from the web:\n" + "\n".join(news)
+            ticker_sections.append(section)
+            chart = self.render_chart(ticker, history)
+            if chart:
+                charts.append((f"{ticker} - 1 year price chart", chart))
+
         with self.articles_lock:
             articles = list(self.latest_articles)
-        if not articles:
-            articles = self.fetch_articles()
-
         headline_lines = [
             f"- [{article['source']}] {article['title']} ({article['published']})"
-            for article in articles[:50]
+            for article in articles[: 25 if ticker_sections else 50]
         ]
-
-        mentioned = [
-            ticker
-            for ticker in PORTFOLIO
-            if re.search(rf"\b{re.escape(ticker)}\b", question, re.IGNORECASE)
-        ]
-        price_lines = [line for ticker in mentioned[:5] if (line := self.price_line(ticker))]
 
         context = (
             f"Question from the user: {question}\n\n"
-            "Live market snapshot:\n"
+            + (
+                "Live data and web news for stocks mentioned:\n\n"
+                + "\n\n".join(ticker_sections)
+                + "\n\n"
+                if ticker_sections
+                else ""
+            )
+            + "Live market snapshot:\n"
             f"{chr(10).join(self.market_snapshot())}\n\n"
-            + (f"Live prices for tickers mentioned:\n{chr(10).join(price_lines)}\n\n" if price_lines else "")
-            + f"Portfolio holdings: {', '.join(PORTFOLIO)}\n\n"
-            "Recent headlines collected by this bot:\n"
+            f"User's portfolio holdings: {', '.join(PORTFOLIO)}\n\n"
+            "Recent general headlines collected by this bot:\n"
             f"{chr(10).join(headline_lines) if headline_lines else 'No recent headlines available.'}"
         )
 
@@ -1014,7 +1212,11 @@ class StockTelegramAgent:
             self.send_telegram("Sorry, I could not get an answer from the model. Try again or switch models with /model.")
             return
 
+        # Telegram messages are sent as plain text; markdown markers would show literally.
+        answer = answer.replace("**", "").replace("##", "").replace("__", "")
         self.send_telegram_chunks(answer)
+        for caption, chart in charts:
+            self.send_telegram_photo(chart, caption)
 
     def handle_model_command(self, text: str) -> None:
         parts = text.split(maxsplit=1)
