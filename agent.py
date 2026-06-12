@@ -54,6 +54,16 @@ ANALYSIS_SYSTEM_PROMPT = (
     "You are a careful equity analyst and AI research tracker. "
     "Return valid JSON only. No markdown or commentary."
 )
+QA_SYSTEM_PROMPT = (
+    "You are a sharp, honest equity and AI market assistant chatting on Telegram. "
+    "Use the live market data, portfolio prices, and recent headlines supplied in "
+    "the user message as your primary evidence. You may add well-known background "
+    "knowledge, but clearly separate it from the supplied live data and never "
+    "invent prices, numbers, or news. Answer directly and concisely in plain text "
+    "suitable for Telegram: no markdown tables, no headers, short paragraphs or "
+    "simple dashes for lists. This is not financial advice and you should note "
+    "that only when the user asks for buy/sell decisions."
+)
 INSTITUTIONAL_REPORT_SYSTEM_PROMPT = (
     "Use only the evidence supplied in the user message. Do not invent prices, "
     "flows, filings, earnings details, or macro data. If a requested section is "
@@ -240,14 +250,28 @@ PORTFOLIO: dict[str, str] = {
 }
 
 
+# All feed URLs verified live on 2026-06-12. Reuters direct RSS, Anthropic News,
+# MarketWatch Internet, Investors Business, and Papers With Code feeds are dead
+# and were removed; Reuters is covered through the Google News RSS proxy below.
 RSS_FEEDS: list[tuple[str, str]] = [
-    ("Reuters Business", "https://feeds.reuters.com/reuters/businessNews"),
-    ("Reuters Tech", "https://feeds.reuters.com/reuters/technologyNews"),
+    # Official / primary sources
+    ("Federal Reserve Press", "https://www.federalreserve.gov/feeds/press_all.xml"),
+    ("SEC Press Releases", "https://www.sec.gov/news/pressreleases.rss"),
+    ("EIA Today in Energy", "https://www.eia.gov/rss/todayinenergy.xml"),
+    ("BEA News", "https://apps.bea.gov/rss/rss.xml"),
+    ("Census Economic Indicators", "https://www.census.gov/economic-indicators/indicator.xml"),
+    # Market news
+    ("Reuters Markets (Google News)", "https://news.google.com/rss/search?q=site:reuters.com+markets&hl=en-US&gl=US&ceid=US:en"),
+    ("WSJ Markets", "https://feeds.a.dj.com/rss/RSSMarketsMain.xml"),
+    ("WSJ US Business", "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml"),
+    ("Yahoo Finance", "https://finance.yahoo.com/news/rssindex"),
+    ("Seeking Alpha Market Currents", "https://seekingalpha.com/market_currents.xml"),
     ("CNBC Markets", "https://www.cnbc.com/id/20910258/device/rss/rss.html"),
+    ("CNBC Earnings", "https://www.cnbc.com/id/15839135/device/rss/rss.html"),
     ("CNBC Tech", "https://www.cnbc.com/id/19854910/device/rss/rss.html"),
     ("MarketWatch Top", "https://feeds.marketwatch.com/marketwatch/topstories"),
-    ("MarketWatch Internet", "https://feeds.marketwatch.com/marketwatch/internet"),
-    ("Investors Business", "https://www.investors.com/feed/"),
+    ("Fortune", "https://fortune.com/feed/"),
+    # Technology and AI
     ("TechCrunch AI", "https://techcrunch.com/category/artificial-intelligence/feed/"),
     ("VentureBeat AI", "https://venturebeat.com/category/ai/feed/"),
     ("The Verge", "https://www.theverge.com/rss/index.xml"),
@@ -256,11 +280,9 @@ RSS_FEEDS: list[tuple[str, str]] = [
     ("Wired", "https://www.wired.com/feed/rss"),
     ("ZDNet AI", "https://www.zdnet.com/topic/artificial-intelligence/rss.xml"),
     ("HuggingFace Blog", "https://huggingface.co/blog/feed.xml"),
-    ("Papers With Code", "https://paperswithcode.com/latest.rss"),
     ("Towards Data Science", "https://towardsdatascience.com/feed"),
     ("Google AI Blog", "https://blog.google/technology/ai/rss/"),
     ("OpenAI News", "https://openai.com/news/rss.xml"),
-    ("Anthropic News", "https://www.anthropic.com/news/rss.xml"),
     ("IEEE Spectrum", "https://spectrum.ieee.org/feeds/feed.rss"),
     ("New Scientist Tech", "https://www.newscientist.com/subject/technology/feed/"),
 ]
@@ -467,6 +489,8 @@ class StockTelegramAgent:
         self.last_update_id = 0
         self.digest_articles: list[dict[str, Any]] = []
         self.last_digest_date: str | None = None
+        self.latest_articles: list[dict[str, Any]] = []
+        self.articles_lock = threading.Lock()
 
     def load_model(self) -> str:
         saved = load_json(self.settings.model_cache, {})
@@ -597,7 +621,9 @@ class StockTelegramAgent:
 
         for source, url in RSS_FEEDS:
             try:
-                feed = feedparser.parse(url)
+                response = self.http.get(url, timeout=self.settings.request_timeout_seconds)
+                response.raise_for_status()
+                feed = feedparser.parse(response.content)
                 if getattr(feed, "bozo", False):
                     self.log.warning("Feed parse warning for %s", source)
 
@@ -618,6 +644,9 @@ class StockTelegramAgent:
             except Exception as exc:
                 self.log.warning("Feed fetch failed for %s: %s", source, exc)
 
+        if articles:
+            with self.articles_lock:
+                self.latest_articles = articles
         return articles
 
     @staticmethod
@@ -822,13 +851,14 @@ class StockTelegramAgent:
         try:
             response = self.http.get(
                 f"https://api.telegram.org/bot{self.settings.telegram_bot_token}/getUpdates",
-                params={"offset": self.last_update_id + 1, "timeout": 5},
-                timeout=self.settings.request_timeout_seconds,
+                params={"offset": self.last_update_id + 1, "timeout": 25},
+                timeout=self.settings.request_timeout_seconds + 30,
             )
             response.raise_for_status()
             updates = response.json().get("result", [])
         except requests.RequestException as exc:
             self.log.error("Telegram command polling failed: %s", exc)
+            time.sleep(5)
             return
 
         for update in updates:
@@ -849,6 +879,8 @@ class StockTelegramAgent:
                 self.send_score_for_ticker(text)
             elif command.startswith("/model"):
                 self.handle_model_command(text)
+            elif command == "/q" or command.startswith("/q "):
+                self.answer_question(text)
             elif command == "/report":
                 self.send_institutional_report()
             elif command.startswith("/pause"):
@@ -913,6 +945,60 @@ class StockTelegramAgent:
         ]
         self.send_telegram("\n".join(line for line in lines if line))
 
+    def answer_question(self, text: str) -> None:
+        parts = text.split(maxsplit=1)
+        question = parts[1].strip() if len(parts) > 1 else ""
+        if not question:
+            self.send_telegram("Usage: /q your question\nExample: /q why is NVDA down today?")
+            return
+
+        self.send_telegram("Thinking...")
+
+        with self.articles_lock:
+            articles = list(self.latest_articles)
+        if not articles:
+            articles = self.fetch_articles()
+
+        headline_lines = [
+            f"- [{article['source']}] {article['title']} ({article['published']})"
+            for article in articles[:50]
+        ]
+
+        mentioned = [
+            ticker
+            for ticker in PORTFOLIO
+            if re.search(rf"\b{re.escape(ticker)}\b", question, re.IGNORECASE)
+        ]
+        price_lines = [line for ticker in mentioned[:5] if (line := self.price_line(ticker))]
+
+        context = (
+            f"Question from the user: {question}\n\n"
+            "Live market snapshot:\n"
+            f"{chr(10).join(self.market_snapshot())}\n\n"
+            + (f"Live prices for tickers mentioned:\n{chr(10).join(price_lines)}\n\n" if price_lines else "")
+            + f"Portfolio holdings: {', '.join(PORTFOLIO)}\n\n"
+            "Recent headlines collected by this bot:\n"
+            f"{chr(10).join(headline_lines) if headline_lines else 'No recent headlines available.'}"
+        )
+
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                max_tokens=1200,
+                temperature=0.3,
+                messages=[
+                    {"role": "system", "content": QA_SYSTEM_PROMPT},
+                    {"role": "user", "content": context},
+                ],
+            )
+            answer = response.choices[0].message.content or "No answer generated."
+        except Exception as exc:
+            self.log.error("Question answering failed (%s): %s", self.model, exc)
+            self.send_telegram("Sorry, I could not get an answer from the model. Try again or switch models with /model.")
+            return
+
+        self.send_telegram_chunks(answer)
+
     def handle_model_command(self, text: str) -> None:
         parts = text.split(maxsplit=1)
         choice = parts[1].strip() if len(parts) > 1 else ""
@@ -957,6 +1043,7 @@ class StockTelegramAgent:
             "/news NVDA - latest news for a ticker\n"
             "/score NVDA - 7-day sentiment report\n"
             "/report - institutional market report\n"
+            "/q your question - ask the AI anything about markets or your holdings\n"
             "/model - show or switch the AI model\n"
             "/pause - pause alerts for 2 hours\n"
             "/resume - resume alerts\n"
@@ -966,6 +1053,49 @@ class StockTelegramAgent:
     def is_paused(self) -> bool:
         with self.paused_lock:
             return self.paused_until is not None and datetime.now(timezone.utc) < self.paused_until
+
+    def news_cycle(self, seen: set[str]) -> None:
+        self.log.info("Fetching news")
+        articles = self.fetch_articles()
+        new_articles = [article for article in articles if article["id"] not in seen]
+        self.log.info("%s new articles", len(new_articles))
+
+        if not new_articles:
+            return
+
+        alerts = self.analyse(new_articles)
+        relevant = [
+            alert
+            for alert in alerts
+            if int(alert.get("relevance_score", 0)) >= self.settings.min_score
+        ]
+        self.log.info("%s alerts to send", len(relevant))
+        self.digest_articles.extend(relevant)
+
+        for alert in relevant:
+            self.record_sentiment(
+                alert.get("affected_tickers", []),
+                alert.get("impact", "NEUTRAL"),
+            )
+            self.send_telegram(self.format_alert(alert))
+            time.sleep(1.5)
+
+        seen.update(article["id"] for article in new_articles)
+        self.save_seen(seen)
+
+    def news_loop(self) -> None:
+        seen = self.load_seen()
+        while True:
+            try:
+                self.maybe_send_digest()
+                if self.is_paused():
+                    time.sleep(60)
+                    continue
+                self.news_cycle(seen)
+            except Exception:
+                self.log.exception("News loop error")
+            self.log.info("News loop sleeping %s seconds", self.settings.poll_interval_seconds)
+            time.sleep(self.settings.poll_interval_seconds)
 
     def run(self) -> None:
         self.settings.data_dir.mkdir(parents=True, exist_ok=True)
@@ -977,44 +1107,17 @@ class StockTelegramAgent:
             "Send /help to see commands."
         )
 
-        seen = self.load_seen()
+        news_thread = threading.Thread(target=self.news_loop, name="news-loop", daemon=True)
+        news_thread.start()
+
+        # The main thread long-polls Telegram so commands are answered within
+        # seconds even while the news loop is sleeping between feed cycles.
         while True:
-            self.handle_commands()
-            self.maybe_send_digest()
-
-            if self.is_paused():
-                self.log.info("Agent is paused; sleeping 60 seconds")
-                time.sleep(60)
-                continue
-
-            self.log.info("Fetching news")
-            articles = self.fetch_articles()
-            new_articles = [article for article in articles if article["id"] not in seen]
-            self.log.info("%s new articles", len(new_articles))
-
-            if new_articles:
-                alerts = self.analyse(new_articles)
-                relevant = [
-                    alert
-                    for alert in alerts
-                    if int(alert.get("relevance_score", 0)) >= self.settings.min_score
-                ]
-                self.log.info("%s alerts to send", len(relevant))
-                self.digest_articles.extend(relevant)
-
-                for alert in relevant:
-                    self.record_sentiment(
-                        alert.get("affected_tickers", []),
-                        alert.get("impact", "NEUTRAL"),
-                    )
-                    self.send_telegram(self.format_alert(alert))
-                    time.sleep(1.5)
-
-                seen.update(article["id"] for article in new_articles)
-                self.save_seen(seen)
-
-            self.log.info("Sleeping %s seconds", self.settings.poll_interval_seconds)
-            time.sleep(self.settings.poll_interval_seconds)
+            try:
+                self.handle_commands()
+            except Exception:
+                self.log.exception("Command loop error")
+                time.sleep(5)
 
 
 def main() -> int:

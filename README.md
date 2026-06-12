@@ -4,10 +4,12 @@ A Python agent that watches market, technology, and AI RSS feeds, uses an OpenRo
 
 ## Features
 
-- Polls finance, technology, AI, and research RSS feeds.
+- Polls verified free, trustworthy sources: official feeds (Federal Reserve, SEC, EIA, BEA, Census) plus quality market and AI news (Reuters, WSJ, Yahoo Finance, Seeking Alpha, CNBC, and more).
 - Scores articles against a portfolio using any model available on [OpenRouter](https://openrouter.ai/models).
 - Switch the active model from Telegram with `/model` — the choice persists across restarts.
-- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/report`, `/model`, `/pause`, `/resume`, and `/help`.
+- Ask the agent anything with `/q` — it answers using live market data, portfolio prices, and the latest headlines.
+- Always responsive: news polling runs in a background thread while the bot long-polls Telegram, so commands are answered within seconds at any time.
+- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/report`, `/q`, `/model`, `/pause`, `/resume`, and `/help`.
 - Stores runtime state under `data/` and logs under `logs/`; neither should be committed.
 - Validates required secrets on startup and redacts tokens from logs.
 
@@ -87,6 +89,17 @@ Optional environment variables:
 - `ANALYSIS_PROMPT_FILE`: optional path to a UTF-8 text file containing custom analysis instructions. Use this instead of `ANALYSIS_PROMPT` for longer prompts.
 
 The custom analysis prompt changes how the agent evaluates articles. The JSON output contract is still enforced in code because Telegram alerts, scoring, and sentiment tracking depend on those fields.
+
+## Asking Questions from Telegram
+
+Send `/q` followed by any question:
+
+```
+/q why is NVDA down today?
+/q summarize what the Fed said this week
+```
+
+The agent answers with the active model, grounded in the live market snapshot, prices for any portfolio tickers you mention, and the most recently fetched headlines.
 
 ## Switching Models from Telegram
 
