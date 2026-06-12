@@ -558,6 +558,15 @@ class StockTelegramAgent:
         market = "After-hours" if price["market"] != "REGULAR" else "Market open"
         return f"{ticker}: ${price['price']} ({sign}{price['change_pct']}%) | {market}"
 
+    @staticmethod
+    def _entry_time(value: str) -> datetime:
+        # Sentiment files written by older agent versions hold naive timestamps;
+        # treat those as UTC so they compare cleanly with aware datetimes.
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
     def record_sentiment(self, tickers: list[str], impact: str) -> None:
         sentiment = self.load_sentiment()
         now = datetime.now(timezone.utc)
@@ -566,11 +575,14 @@ class StockTelegramAgent:
         for ticker in tickers:
             entries = sentiment.setdefault(ticker, [])
             entries.append({"impact": impact, "time": now.isoformat()})
-            sentiment[ticker] = [
-                entry
-                for entry in entries
-                if datetime.fromisoformat(entry["time"]) > cutoff
-            ]
+            kept = []
+            for entry in entries:
+                try:
+                    if self._entry_time(entry["time"]) > cutoff:
+                        kept.append(entry)
+                except (KeyError, ValueError):
+                    continue
+            sentiment[ticker] = kept
 
         self.save_sentiment(sentiment)
 
