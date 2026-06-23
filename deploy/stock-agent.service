@@ -1,0 +1,21 @@
+[Unit]
+Description=Stock Telegram Agent (market intelligence brief)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User and paths to match your server. Oracle Linux default user is
+# "opc"; Ubuntu images use "ubuntu". The placeholders below are replaced by
+# deploy/setup.sh, or edit them by hand.
+User=__USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__APP_DIR__/.env
+ExecStart=__APP_DIR__/.venv/bin/python agent.py
+Restart=always
+RestartSec=10
+# Give the upstream CLIs (rdt, mcporter) on PATH for the service.
+Environment=PATH=__HOME__/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=multi-user.target
