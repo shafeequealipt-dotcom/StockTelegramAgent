@@ -29,12 +29,22 @@ import requests
 from dotenv import load_dotenv
 from openai import OpenAI
 
+import social
+
 load_dotenv()
 
 
 APP_NAME = "StockTelegramAgent"
 DEFAULT_USER_AGENT = "StockTelegramAgent/1.0 (+https://github.com/shafeequealipt-dotcom/StockTelegramAgent)"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+# Yahoo's crumb/quoteSummary endpoints rate-limit non-browser User-Agents, so
+# the analyst calls present a browser UA (price/chart endpoints are unaffected).
+YAHOO_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    )
+}
 DEFAULT_MODEL = "openai/gpt-4o-mini"
 DEFAULT_MODEL_CHOICES = [
     "openai/gpt-4o-mini",
@@ -51,10 +61,16 @@ DEFAULT_MODEL_CHOICES = [
     "openai/gpt-oss-120b:free",
 ]
 DEFAULT_ANALYSIS_INSTRUCTIONS = (
-    "You are an equity analyst and AI research tracker. Prioritize market-moving "
-    "news, direct portfolio impact, competitive AI developments, model releases, "
-    "semiconductor supply chain signals, cloud AI adoption, earnings implications, "
-    "regulatory risk, and major research or product announcements."
+    "You are a markets and macro analyst. Surface anything that can move US "
+    "equities or the portfolio, whether or not it names a specific ticker. "
+    "Prioritize: Federal Reserve decisions, interest rate moves, inflation and "
+    "jobs data; US political and policy news (White House, Trump administration, "
+    "tariffs, trade, regulation, fiscal policy); global and geopolitical events "
+    "(wars, OPEC, China, trade disputes, elections) that affect markets; direct "
+    "portfolio impact; competitive AI developments, model releases, semiconductor "
+    "supply chain, cloud AI adoption, earnings, and major product announcements. "
+    "Broad market-moving macro/political/global news with no specific ticker is "
+    "still highly relevant — score it on market impact, not ticker mentions."
 )
 ANALYSIS_SYSTEM_PROMPT = (
     "You are a careful equity analyst and AI research tracker. "
@@ -300,7 +316,33 @@ RSS_FEEDS: list[tuple[str, str]] = [
     ("OpenAI News", "https://openai.com/news/rss.xml"),
     ("IEEE Spectrum", "https://spectrum.ieee.org/feeds/feed.rss"),
     ("New Scientist Tech", "https://www.newscientist.com/subject/technology/feed/"),
+    # Politics & policy (White House, Congress, regulation, Trump administration)
+    ("Reuters Politics (Google News)", "https://news.google.com/rss/search?q=site:reuters.com+politics&hl=en-US&gl=US&ceid=US:en"),
+    ("The Hill", "https://thehill.com/news/feed/"),
+    ("Politico Politics", "https://rss.politico.com/politics-news.xml"),
+    ("AP Politics", "https://news.google.com/rss/search?q=site:apnews.com+politics&hl=en-US&gl=US&ceid=US:en"),
+    ("White House Trade & Economy (Google News)", "https://news.google.com/rss/search?q=White+House+OR+Trump+tariffs+OR+economy+OR+trade&hl=en-US&gl=US&ceid=US:en"),
+    # Global & geopolitical (macro-moving: wars, trade, OPEC, China, elections)
+    ("Reuters World (Google News)", "https://news.google.com/rss/search?q=site:reuters.com+world&hl=en-US&gl=US&ceid=US:en"),
+    ("BBC World", "https://feeds.bbci.co.uk/news/world/rss.xml"),
+    ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
+    ("Reuters Business (Google News)", "https://news.google.com/rss/search?q=site:reuters.com+business&hl=en-US&gl=US&ceid=US:en"),
+    ("Geopolitics & Markets (Google News)", "https://news.google.com/rss/search?q=geopolitics+OR+OPEC+OR+China+economy+OR+trade+war&hl=en-US&gl=US&ceid=US:en"),
 ]
+
+
+# Default search queries fed to the social/web sources (X, Reddit, Exa).
+# Tuned for macro + market-moving coverage rather than per-ticker spam.
+DEFAULT_SOCIAL_QUERIES: list[str] = [
+    "stock market today",
+    "Federal Reserve interest rate decision",
+    "Trump tariffs economy policy",
+    "US economy inflation jobs report",
+    "$NVDA OR $MSFT OR $AAPL OR $META OR $AMD",
+]
+
+# Subreddits the agent pulls hot posts from (in addition to the search queries).
+DEFAULT_REDDIT_SUBS: list[str] = ["stocks", "wallstreetbets", "investing"]
 
 
 MARKET_SYMBOLS: dict[str, str] = {
@@ -331,6 +373,12 @@ class Settings:
     daily_digest_hour: int
     feed_lookback_hours: int
     request_timeout_seconds: int
+    brief_interval_hours: int
+    realtime_alerts: bool
+    enable_social: bool
+    social_queries: tuple[str, ...]
+    reddit_subreddits: tuple[str, ...]
+    social_timeout_seconds: int
     data_dir: Path
     log_dir: Path
     analysis_instructions: str
@@ -361,6 +409,29 @@ def _get_int_env(name: str, default: int, minimum: int | None = None, maximum: i
     if maximum is not None and value > maximum:
         raise ValueError(f"{name} must be at most {maximum}")
     return value
+
+
+def _get_bool_env(name: str, default: bool) -> bool:
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value.strip() == "":
+        return default
+    return raw_value.strip().lower() in ("1", "true", "yes", "on")
+
+
+def _load_social_queries() -> tuple[str, ...]:
+    raw = os.getenv("SOCIAL_QUERIES", "")
+    queries = [query.strip() for query in raw.split("|") if query.strip()]
+    if not queries:
+        queries = list(DEFAULT_SOCIAL_QUERIES)
+    return tuple(queries)
+
+
+def _load_reddit_subs() -> tuple[str, ...]:
+    raw = os.getenv("REDDIT_SUBREDDITS", "")
+    subs = [sub.strip().lstrip("r/").strip("/") for sub in raw.split(",") if sub.strip()]
+    if not subs:
+        subs = list(DEFAULT_REDDIT_SUBS)
+    return tuple(subs)
 
 
 def _load_analysis_instructions() -> str:
@@ -414,6 +485,12 @@ def load_settings() -> Settings:
         daily_digest_hour=_get_int_env("DAILY_DIGEST_HOUR", 8, minimum=0, maximum=23),
         feed_lookback_hours=_get_int_env("FEED_LOOKBACK_HOURS", 2, minimum=1),
         request_timeout_seconds=_get_int_env("REQUEST_TIMEOUT_SECONDS", 10, minimum=1),
+        brief_interval_hours=_get_int_env("BRIEF_INTERVAL_HOURS", 4, minimum=1, maximum=24),
+        realtime_alerts=_get_bool_env("REALTIME_ALERTS", False),
+        enable_social=_get_bool_env("ENABLE_SOCIAL", True),
+        social_queries=_load_social_queries(),
+        reddit_subreddits=_load_reddit_subs(),
+        social_timeout_seconds=_get_int_env("SOCIAL_TIMEOUT_SECONDS", 30, minimum=5, maximum=120),
         data_dir=Path(os.getenv("AGENT_DATA_DIR", "data")),
         log_dir=Path(os.getenv("AGENT_LOG_DIR", "logs")),
         analysis_instructions=_load_analysis_instructions(),
@@ -502,10 +579,14 @@ class StockTelegramAgent:
         self.paused_until: datetime | None = None
         self.paused_lock = threading.Lock()
         self.last_update_id = 0
-        self.digest_articles: list[dict[str, Any]] = []
-        self.last_digest_date: str | None = None
+        # Items accumulated since the last brief, sent as one consolidated message.
+        self.brief_items: list[dict[str, Any]] = []
+        self.last_brief_time = datetime.now(timezone.utc)
+        self.last_morning_brief_date: str | None = None
+        self.social_notes: list[str] = []
         self.latest_articles: list[dict[str, Any]] = []
         self.articles_lock = threading.Lock()
+        self._yahoo_crumb_value: str | None = None
 
     def load_model(self) -> str:
         saved = load_json(self.settings.model_cache, {})
@@ -613,6 +694,107 @@ class StockTelegramAgent:
             return "n/a"
         return f"{(new - old) / old * 100:+.1f}%"
 
+    def _yahoo_crumb(self) -> str | None:
+        """Yahoo's analyst/quote endpoints need a cookie + crumb token.
+
+        Seed the session cookie jar once, fetch a crumb, and cache it. Works
+        headlessly (no browser), so it runs fine on a server. Returns None if
+        Yahoo blocks the handshake, in which case analyst data is just skipped.
+        """
+        if self._yahoo_crumb_value:
+            return self._yahoo_crumb_value
+        try:
+            self.http.get(
+                "https://fc.yahoo.com",
+                headers=YAHOO_BROWSER_HEADERS,
+                timeout=self.settings.request_timeout_seconds,
+            )
+            response = self.http.get(
+                "https://query1.finance.yahoo.com/v1/test/getcrumb",
+                headers=YAHOO_BROWSER_HEADERS,
+                timeout=self.settings.request_timeout_seconds,
+            )
+            crumb = (response.text or "").strip()
+            # A real crumb is a short token with no whitespace; error bodies like
+            # "Too Many Requests" or HTML must be rejected (and never cached).
+            if crumb and len(crumb) <= 24 and not re.search(r"\s|<", crumb):
+                self._yahoo_crumb_value = crumb
+                return crumb
+            self.log.warning("Yahoo crumb unavailable (response: %r)", crumb[:40])
+        except requests.RequestException as exc:
+            self.log.warning("Yahoo crumb fetch failed: %s", exc)
+        return None
+
+    def get_analyst(self, ticker: str) -> dict[str, Any] | None:
+        """Analyst ratings and price targets from Yahoo's quoteSummary API."""
+        crumb = self._yahoo_crumb()
+        if not crumb:
+            return None
+        try:
+            response = self.http.get(
+                f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{ticker}",
+                params={"modules": "financialData,recommendationTrend", "crumb": crumb},
+                headers=YAHOO_BROWSER_HEADERS,
+                timeout=self.settings.request_timeout_seconds,
+            )
+            response.raise_for_status()
+            result = (response.json().get("quoteSummary", {}).get("result") or [None])[0]
+            if not result:
+                return None
+        except (requests.RequestException, ValueError) as exc:
+            self.log.warning("Analyst fetch failed for %s: %s", ticker, exc)
+            return None
+
+        fin = result.get("financialData", {}) or {}
+        trend = (result.get("recommendationTrend", {}).get("trend") or [{}])[0]
+
+        def _raw(field: str) -> float | None:
+            value = fin.get(field)
+            return value.get("raw") if isinstance(value, dict) else None
+
+        data = {
+            "recommendation": fin.get("recommendationKey", ""),
+            "num_analysts": _raw("numberOfAnalystOpinions"),
+            "current": _raw("currentPrice"),
+            "target_mean": _raw("targetMeanPrice"),
+            "target_high": _raw("targetHighPrice"),
+            "target_low": _raw("targetLowPrice"),
+            "strong_buy": trend.get("strongBuy"),
+            "buy": trend.get("buy"),
+            "hold": trend.get("hold"),
+            "sell": trend.get("sell"),
+            "strong_sell": trend.get("strongSell"),
+        }
+        if data["target_mean"] is None and not data["recommendation"]:
+            return None
+        return data
+
+    def analyst_summary(self, ticker: str) -> list[str]:
+        """Human-readable analyst lines; empty list if no data available."""
+        data = self.get_analyst(ticker)
+        if not data:
+            return []
+        lines: list[str] = []
+        rec = str(data.get("recommendation", "")).replace("_", " ").title()
+        if rec and data.get("num_analysts"):
+            lines.append(f"Analyst consensus: {rec} ({int(data['num_analysts'])} analysts)")
+        elif rec:
+            lines.append(f"Analyst consensus: {rec}")
+        mean = data.get("target_mean")
+        if mean:
+            target = f"Price target: {mean:.2f} mean"
+            if data.get("target_low") and data.get("target_high"):
+                target += f" (range {data['target_low']:.0f}-{data['target_high']:.0f})"
+            current = data.get("current")
+            if current:
+                target += f" | upside {self._pct(mean, current)} vs {current:.2f}"
+            lines.append(target)
+        counts = [data.get(k) for k in ("strong_buy", "buy", "hold", "sell", "strong_sell")]
+        if any(isinstance(c, int) for c in counts):
+            sb, b, h, s, ss = (c or 0 for c in counts)
+            lines.append(f"Ratings: {sb} strong buy, {b} buy, {h} hold, {s} sell, {ss} strong sell")
+        return lines
+
     def ticker_overview(self, ticker: str, history: dict[str, Any]) -> list[str]:
         """Human-readable stats computed from price history."""
         meta = history["meta"]
@@ -644,6 +826,7 @@ class StockTelegramAgent:
         if len(volumes) >= 20:
             avg_volume = sum(volumes[-20:]) / 20
             lines.append(f"Last volume: {volumes[-1]:,.0f} vs 20-day average {avg_volume:,.0f}")
+        lines.extend(self.analyst_summary(ticker))
         return lines
 
     def fetch_ticker_news(self, query: str, limit: int = 8) -> list[str]:
@@ -780,41 +963,113 @@ class StockTelegramAgent:
                 warnings.append((ticker, bearish))
         return warnings
 
-    def maybe_send_digest(self) -> None:
-        now = datetime.now()
-        today = now.date().isoformat()
-        if now.hour != self.settings.daily_digest_hour or self.last_digest_date == today:
-            return
+    # Category groups shown in the consolidated brief, in display order.
+    BRIEF_CATEGORIES: tuple[tuple[str, str], ...] = (
+        ("FED_RATES", "Fed & Rates"),
+        ("STOCKS", "US Stocks & Earnings"),
+        ("POLITICS", "Politics & Policy"),
+        ("GLOBAL", "Global & Geopolitics"),
+        ("AI_TECH", "AI & Tech"),
+        ("OTHER", "Other"),
+    )
 
-        self.last_digest_date = today
-        if not self.digest_articles:
-            self.send_telegram("Daily AI Market Digest\nNo significant news in the past 24 hours.")
-            return
+    def build_brief(self, items: list[dict[str, Any]], *, title: str, include_prices: bool) -> str:
+        """Group analysed items by category into one consolidated message."""
+        buckets: dict[str, list[dict[str, Any]]] = {key: [] for key, _ in self.BRIEF_CATEGORIES}
+        for item in items:
+            category = str(item.get("category", "OTHER")).upper()
+            buckets.setdefault(category if category in buckets else "OTHER", []).append(item)
 
-        top_articles = sorted(
-            self.digest_articles,
-            key=lambda item: int(item.get("relevance_score", 0)),
-            reverse=True,
-        )[:7]
-        lines = [f"Daily AI Market Digest - {today}", ""]
-        for article in top_articles:
-            tickers = " ".join(f"${ticker}" for ticker in article.get("affected_tickers", []))
-            lines.append(
-                f"{article.get('impact', 'NEUTRAL')} | {article.get('relevance_score')}/10 | "
-                f"{tickers or 'General/AI'}"
-            )
-            lines.append(str(article.get("title", ""))[:120])
-            lines.append(str(article.get("one_line", ""))[:160])
+        lines = [title, ""]
+        for key, label in self.BRIEF_CATEGORIES:
+            group = sorted(
+                buckets.get(key, []),
+                key=lambda entry: int(entry.get("relevance_score", 0)),
+                reverse=True,
+            )[:6]
+            if not group:
+                continue
+            lines.append(f"=== {label} ===")
+            for entry in group:
+                tickers = " ".join(f"${ticker}" for ticker in entry.get("affected_tickers", []))
+                tag = f" {tickers}" if tickers else ""
+                lines.append(
+                    f"[{entry.get('relevance_score')}/10] {entry.get('impact', 'NEUTRAL')}"
+                    f"{tag} — {str(entry.get('title', ''))[:140]}"
+                )
+                one_line = str(entry.get("one_line", "")).strip()
+                if one_line:
+                    lines.append(f"   {one_line[:180]}")
+                link = str(entry.get("link", "")).strip()
+                if link:
+                    lines.append(f"   {link}")
             lines.append("")
 
-        lines.append("Morning price snapshot")
-        for ticker in ["NVDA", "MSFT", "INTC", "META", "AMD", "NOW"]:
-            price = self.price_line(ticker)
-            if price:
-                lines.append(price)
+        if include_prices:
+            lines.append("=== Market snapshot ===")
+            lines.extend(self.market_snapshot())
+            lines.append("")
+            lines.append("Watchlist")
+            for ticker in ["NVDA", "MSFT", "INTC", "META", "AMD", "NOW"]:
+                price = self.price_line(ticker)
+                if price:
+                    lines.append(price)
 
-        self.send_telegram("\n".join(lines).strip())
-        self.digest_articles = []
+        return "\n".join(lines).strip()
+
+    def maybe_send_brief(self) -> None:
+        """Send the morning edition at the digest hour, plus interval briefs."""
+        now = datetime.now(timezone.utc)
+        today = now.date().isoformat()
+        is_morning = (
+            datetime.now().hour == self.settings.daily_digest_hour
+            and self.last_morning_brief_date != today
+        )
+        interval_due = (now - self.last_brief_time) >= timedelta(hours=self.settings.brief_interval_hours)
+
+        if not (is_morning or interval_due):
+            return
+
+        items = self.brief_items
+        if is_morning:
+            self.last_morning_brief_date = today
+            title = f"Morning Market Intelligence Brief - {today}"
+            if not items:
+                self.send_telegram(f"{title}\n\nNo significant market-moving news overnight.")
+                self.brief_items = []
+                self.last_brief_time = now
+                return
+            self.send_telegram_chunks(self.build_brief(items, title=title, include_prices=True))
+        else:
+            # Interval brief: skip silently when nothing new accumulated.
+            if not items:
+                self.last_brief_time = now
+                return
+            stamp = datetime.now().strftime("%H:%M")
+            title = f"Market Intelligence Brief - {stamp}"
+            self.send_telegram_chunks(self.build_brief(items, title=title, include_prices=False))
+
+        self.brief_items = []
+        self.last_brief_time = now
+
+    def send_brief_now(self) -> None:
+        """On-demand brief: fetch fresh news + social, analyse, send immediately."""
+        self.send_telegram("Building your combined market brief...")
+        try:
+            articles = self.fetch_articles()
+            analysed = self.analyse(articles)
+            relevant = [a for a in analysed if int(a.get("relevance_score", 0)) >= self.settings.min_score]
+        except Exception as exc:
+            self.log.error("On-demand brief failed: %s", exc)
+            self.send_telegram("Brief failed. Check logs for details.")
+            return
+        if not relevant:
+            self.send_telegram("No market-moving news right now across stocks, Fed, politics, or global feeds.")
+            return
+        stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.send_telegram_chunks(
+            self.build_brief(relevant, title=f"Market Intelligence Brief - {stamp}", include_prices=True)
+        )
 
     def fetch_articles(self) -> list[dict[str, Any]]:
         articles: list[dict[str, Any]] = []
@@ -845,10 +1100,32 @@ class StockTelegramAgent:
             except Exception as exc:
                 self.log.warning("Feed fetch failed for %s: %s", source, exc)
 
+        articles.extend(self.fetch_social_articles())
+
         if articles:
             with self.articles_lock:
                 self.latest_articles = articles
         return articles
+
+    def fetch_social_articles(self) -> list[dict[str, Any]]:
+        """Pull recent items from X/Twitter, Reddit, and Exa (graceful degrade)."""
+        if not self.settings.enable_social:
+            return []
+        try:
+            articles, notes = social.gather(
+                list(self.settings.social_queries),
+                env=dict(os.environ),
+                reddit_subs=list(self.settings.reddit_subreddits),
+                timeout=self.settings.social_timeout_seconds,
+                log=self.log,
+            )
+            self.social_notes = notes
+            if articles:
+                self.log.info("Social sources returned %s items (%s)", len(articles), "; ".join(notes))
+            return articles
+        except Exception as exc:
+            self.log.warning("Social gather failed: %s", exc)
+            return []
 
     @staticmethod
     def _published_at(entry: Any) -> datetime | None:
@@ -876,10 +1153,13 @@ class StockTelegramAgent:
                 f"Articles:\n{article_text}\n\n"
                 "Output contract:\n"
                 "Return a JSON array only. Each object must contain: index, relevance_score "
-                "(integer 1-10), affected_tickers (list from the portfolio or empty list), "
-                "impact (BULLISH, BEARISH, or NEUTRAL), one_line, urgency "
-                "(HIGH, MEDIUM, or LOW), and category (MARKET, AI_LLM, HUGGINGFACE, "
-                "INVENTION, or OTHER). Only include articles with relevance_score >= 6."
+                "(integer 1-10 by market impact), affected_tickers (list from the portfolio, "
+                "or empty list for broad macro/political/global news), impact (BULLISH, "
+                "BEARISH, or NEUTRAL for the market or named tickers), one_line, urgency "
+                "(HIGH, MEDIUM, or LOW), and category (STOCKS, FED_RATES, POLITICS, GLOBAL, "
+                "AI_TECH, or OTHER). Score Fed/rate, political, and global market-movers on "
+                "their market impact even when affected_tickers is empty. Only include "
+                "articles with relevance_score >= 6."
             )
 
             try:
@@ -1078,12 +1358,18 @@ class StockTelegramAgent:
                 self.send_news_for_ticker(text)
             elif command.startswith("/score"):
                 self.send_score_for_ticker(text)
+            elif command.startswith("/analyst"):
+                self.send_analyst_for_ticker(text)
             elif command.startswith("/model"):
                 self.handle_model_command(text)
             elif command == "/q" or command.startswith("/q "):
                 self.answer_question(text)
             elif command == "/report":
                 self.send_institutional_report()
+            elif command == "/brief":
+                self.send_brief_now()
+            elif command == "/sources":
+                self.send_sources_status()
             elif command.startswith("/pause"):
                 with self.paused_lock:
                     self.paused_until = datetime.now(timezone.utc) + timedelta(hours=2)
@@ -1145,6 +1431,23 @@ class StockTelegramAgent:
             warning,
         ]
         self.send_telegram("\n".join(line for line in lines if line))
+
+    def send_analyst_for_ticker(self, text: str) -> None:
+        parts = text.split()
+        ticker = parts[1].upper() if len(parts) > 1 else ""
+        if not ticker:
+            self.send_telegram("Usage: /analyst NVDA")
+            return
+
+        summary = self.analyst_summary(ticker)
+        if not summary:
+            self.send_telegram(
+                f"No analyst data found for {ticker}. It may be an index/ETF, "
+                "or Yahoo blocked the request — try again shortly."
+            )
+            return
+        header = self.price_line(ticker) or ticker
+        self.send_telegram("\n".join([f"Analyst view - ${ticker}", header, "", *summary]))
 
     def answer_question(self, text: str) -> None:
         parts = text.split(maxsplit=1)
@@ -1255,13 +1558,34 @@ class StockTelegramAgent:
         self.log.info("Model switched to %s", model)
         self.send_telegram(f"Model switched to {model}. All analysis and reports now use this model.")
 
+    def send_sources_status(self) -> None:
+        ready = social.availability(dict(os.environ))
+        lines = ["News sources", "", f"RSS feeds: {len(RSS_FEEDS)} active"]
+        if self.settings.enable_social:
+            lines.append("")
+            lines.append("Social / web sources:")
+            label = {"twitter": "X/Twitter", "reddit": "Reddit", "exa": "Exa web search"}
+            for key, name in label.items():
+                lines.append(f"  {name}: {'ready' if ready.get(key) else 'not configured'}")
+            if self.social_notes:
+                lines.append("")
+                lines.append("Last fetch: " + "; ".join(self.social_notes))
+        else:
+            lines.append("Social sources: disabled (set ENABLE_SOCIAL=true)")
+        lines.append("")
+        lines.append(f"Brief every {self.settings.brief_interval_hours}h; morning edition at {self.settings.daily_digest_hour}:00.")
+        self.send_telegram("\n".join(lines))
+
     def send_help(self) -> None:
         self.send_telegram(
-            "AI Stock & Tech News Agent commands\n"
+            "AI Market Intelligence Agent commands\n"
+            "/brief - combined news brief now (stocks, Fed, politics, global)\n"
             "/portfolio - live prices for holdings\n"
             "/news NVDA - latest news for a ticker\n"
             "/score NVDA - 7-day sentiment report\n"
+            "/analyst NVDA - analyst ratings & price targets\n"
             "/report - institutional market report\n"
+            "/sources - show which news sources are active\n"
             "/q your question - ask the AI anything about markets or your holdings\n"
             "/model - show or switch the AI model\n"
             "/pause - pause alerts for 2 hours\n"
@@ -1288,16 +1612,18 @@ class StockTelegramAgent:
             for alert in alerts
             if int(alert.get("relevance_score", 0)) >= self.settings.min_score
         ]
-        self.log.info("%s alerts to send", len(relevant))
-        self.digest_articles.extend(relevant)
-
+        self.log.info("%s relevant items", len(relevant))
+        # Accumulate for the next consolidated brief and keep sentiment state.
+        self.brief_items.extend(relevant)
         for alert in relevant:
             self.record_sentiment(
                 alert.get("affected_tickers", []),
                 alert.get("impact", "NEUTRAL"),
             )
-            self.send_telegram(self.format_alert(alert))
-            time.sleep(1.5)
+            # Real-time per-item alerts are opt-in; the brief is the default delivery.
+            if self.settings.realtime_alerts:
+                self.send_telegram(self.format_alert(alert))
+                time.sleep(1.5)
 
         seen.update(article["id"] for article in new_articles)
         self.save_seen(seen)
@@ -1306,7 +1632,7 @@ class StockTelegramAgent:
         seen = self.load_seen()
         while True:
             try:
-                self.maybe_send_digest()
+                self.maybe_send_brief()
                 if self.is_paused():
                     time.sleep(60)
                     continue
@@ -1319,11 +1645,20 @@ class StockTelegramAgent:
     def run(self) -> None:
         self.settings.data_dir.mkdir(parents=True, exist_ok=True)
         self.log.info("Stock Telegram Agent started")
+        ready = social.availability(dict(os.environ))
+        social_on = [name for name, ok in ready.items() if ok] if self.settings.enable_social else []
+        social_line = (
+            f"Social: {', '.join(social_on)}\n" if social_on
+            else "Social: RSS only (run /sources for setup)\n"
+        )
         self.send_telegram(
-            f"Stock Telegram Agent is live\n"
-            f"Watching {len(PORTFOLIO)} symbols across {len(RSS_FEEDS)} feeds.\n"
+            f"AI Market Intelligence Agent is live\n"
+            f"Watching {len(PORTFOLIO)} symbols across {len(RSS_FEEDS)} feeds "
+            f"(stocks, Fed, politics, global).\n"
+            f"{social_line}"
+            f"Combined brief every {self.settings.brief_interval_hours}h + morning edition.\n"
             f"Model: {self.model} (via OpenRouter)\n"
-            "Send /help to see commands."
+            "Send /brief for a brief now, /help for commands."
         )
 
         news_thread = threading.Thread(target=self.news_loop, name="news-loop", daemon=True)

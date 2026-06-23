@@ -1,15 +1,18 @@
 # Stock Telegram Agent
 
-A Python agent that watches market, technology, and AI RSS feeds, uses an OpenRouter-hosted AI model to score relevant stories, and sends Telegram alerts for a configured stock portfolio.
+A Python agent that watches market, Fed, political, global, and AI news (RSS plus optional X/Twitter, Reddit, and Exa web search), uses an OpenRouter-hosted AI model to score market-moving stories, and sends a consolidated Telegram *Market Intelligence Brief* for validating moves in a configured stock portfolio.
 
 ## Features
 
-- Polls verified free, trustworthy sources: official feeds (Federal Reserve, SEC, EIA, BEA, Census) plus quality market and AI news (Reuters, WSJ, Yahoo Finance, Seeking Alpha, CNBC, and more).
-- Scores articles against a portfolio using any model available on [OpenRouter](https://openrouter.ai/models).
-- Switch the active model from Telegram with `/model` — the choice persists across restarts.
+- Polls verified free, trustworthy sources across four themes: **US stocks & earnings**, **Fed & rates**, **politics & policy** (White House, Trump administration, tariffs, regulation), and **global & geopolitics** (wars, OPEC, China, trade) — plus tech/AI.
+- Optional **social & web sources** via [Agent-Reach](https://github.com/Panniantong/Agent-Reach) upstream CLIs: X/Twitter, Reddit, and Exa web search. Each degrades gracefully — sources you have not configured are simply skipped (`/sources` shows status).
+- **Consolidated brief**: instead of a stream of one-off alerts, the agent groups market-moving news by theme into a single *Market Intelligence Brief*, sent every few hours (`BRIEF_INTERVAL_HOURS`) with a fuller morning edition. Request one anytime with `/brief`. Set `REALTIME_ALERTS=true` to also get instant per-item alerts.
+- Macro/political/global news that moves markets is scored on **market impact**, even when it names no portfolio ticker.
+- Scores articles using any model available on [OpenRouter](https://openrouter.ai/models); switch it from Telegram with `/model` (persists across restarts).
 - Ask the agent anything with `/q` — it answers using live market data, portfolio prices, and the latest headlines.
 - Always responsive: news polling runs in a background thread while the bot long-polls Telegram, so commands are answered within seconds at any time.
-- Sends Telegram alerts and supports `/portfolio`, `/news`, `/score`, `/report`, `/q`, `/model`, `/pause`, `/resume`, and `/help`.
+- Analyst ratings and price targets (consensus, mean/high/low target, buy/hold/sell counts) via Yahoo Finance — fetched headlessly with a cookie+crumb handshake, so it works on a server with no API key. Use `/analyst NVDA`, and it is folded into `/q` answers automatically.
+- Supports `/brief`, `/sources`, `/portfolio`, `/news`, `/score`, `/analyst`, `/report`, `/q`, `/model`, `/pause`, `/resume`, and `/help`.
 - Stores runtime state under `data/` and logs under `logs/`; neither should be committed.
 - Validates required secrets on startup and redacts tokens from logs.
 
@@ -114,6 +117,14 @@ Send `/model` to the bot to see the current model and the numbered list of avail
 Any valid OpenRouter model id is accepted, even if it is not in the list. The selection is saved to `data/model.json` and survives restarts.
 
 The `/report` command uses the built-in institutional market report prompt. It generates a Telegram-ready report from the bot's current market snapshot, portfolio prices, and recent feed articles. Sections without enough evidence are reported as unavailable rather than inferred.
+
+## Consolidated Brief & Social Sources
+
+The agent's default delivery is a single *Market Intelligence Brief* that groups market-moving news into **Fed & Rates**, **US Stocks & Earnings**, **Politics & Policy**, **Global & Geopolitics**, and **AI & Tech**. It is sent every `BRIEF_INTERVAL_HOURS` (default 4) with a fuller morning edition at `DAILY_DIGEST_HOUR`. Send `/brief` for one on demand, or set `REALTIME_ALERTS=true` to also receive instant per-item alerts.
+
+In addition to RSS, the agent can pull live signals from X/Twitter, Reddit, and Exa web search using [Agent-Reach](https://github.com/Panniantong/Agent-Reach)'s upstream CLIs. These are optional — the agent runs fully on RSS and silently skips any source that is not installed/authenticated. Run `/sources` in Telegram to see what is active. Setup commands for each source are documented in `.env.example`. The search queries fed to these sources are configurable via `SOCIAL_QUERIES`, and the subreddits via `REDDIT_SUBREDDITS`.
+
+All market data (prices, history, charts, analyst ratings/targets) comes from Yahoo Finance with no API key. Analyst data uses Yahoo's cookie+crumb handshake, which the agent performs automatically and headlessly — no browser needed — so the full feature set works on a headless server. If Yahoo rate-limits the crumb handshake, analyst data is skipped for that call and retried later; prices and history are unaffected.
 
 ## Security Notes
 
